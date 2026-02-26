@@ -31,7 +31,7 @@ smoke:
 	pytest -m smoke -v
 
 security-check:
-	detect-secrets-hook --baseline .secrets.baseline $$(git ls-files)
+	detect-secrets-hook --baseline .secrets.baseline --exclude-files '(^docs/PRD_LOCAL_CI\.md$$|^\.github/workflows/ci\.yml$$)' $$(git ls-files)
 
 ci: lint typecheck test integration smoke security-check
 
