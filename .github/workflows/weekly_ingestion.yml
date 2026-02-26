@@ -1,0 +1,38 @@
+name: Weekly Ingestion
+
+on:
+  schedule:
+    # 10:00 UTC Friday ~= 6:00 ET during daylight savings
+    - cron: "0 10 * * 5"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run ingestion
+        run: python -m src.ingestion.run_ingestion --force
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          NYC_OPEN_DATA_APP_TOKEN: ${{ secrets.NYC_OPEN_DATA_APP_TOKEN }}
+          NYC_OPEN_DATA_DATASET_ID: ${{ secrets.NYC_OPEN_DATA_DATASET_ID }}
+          SQLITE_DB_PATH: data/yescount.db
+          CHROMA_PERSIST_DIR: data/chroma/
+          SCRAPER_SITES_CONFIG_PATH: config/scraper_sites.yaml
+          INGESTION_AUTO_REFRESH: "true"
+          INGESTION_MAX_STALENESS_HOURS: "192"
+          INGESTION_REQUIRED_SOURCES_STRICT: "true"

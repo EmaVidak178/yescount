@@ -1,0 +1,25 @@
+sources:
+  - name: secretnyc
+    url: https://secretnyc.co/
+    required: true
+    enabled: true
+  - name: timeout_newyork
+    url: https://www.timeout.com/newyork
+    required: true
+    enabled: true
+  - name: hiddennyc
+    url: https://hiddennyc.net/
+    required: true
+    enabled: true
+  - name: untappedcities
+    url: https://www.untappedcities.com/
+    required: true
+    enabled: true
+  - name: anisah_immersive
+    url: https://anisahauduevans.com/new-york-immersive-experiences-nyc/
+    required: true
+    enabled: true
+  - name: fever_newyork
+    url: https://feverup.com/en/new-york
+    required: true
+    enabled: true

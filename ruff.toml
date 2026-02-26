@@ -1,0 +1,23 @@
+target-version = "py311"
+line-length = 100
+
+[lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "SIM",
+    "RUF",
+]
+ignore = ["E501"]
+
+[lint.isort]
+known-first-party = ["src"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

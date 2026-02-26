@@ -1,0 +1,265 @@
+from __future__ import annotations
+
+import argparse
+import sqlite3
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+import requests
+from openai import OpenAI
+
+from src.config.settings import Settings, load_settings
+from src.db.chroma_client import upsert_event_embedding
+from src.db.sqlite_client import (
+    create_ingestion_run,
+    finalize_ingestion_run,
+    latest_successful_ingestion_run,
+    record_ingestion_source_check,
+    upsert_event,
+)
+from src.ingestion.nyc_open_data import fetch_all_events, normalize_events
+from src.ingestion.source_config import SourceTarget, load_sources
+from src.ingestion.web_scraper import normalize_scraped_events, scrape_site
+from src.rag.embedder import embed_batch
+
+
+def should_refresh(conn: sqlite3.Connection, max_staleness_hours: int) -> bool:
+    latest = latest_successful_ingestion_run(conn)
+    if not latest:
+        return True
+    finished_at = latest.get("finished_at")
+    if not finished_at:
+        return True
+    try:
+        normalized = str(finished_at).replace(" ", "T")
+        last = datetime.fromisoformat(normalized)
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=UTC)
+    except ValueError:
+        return True
+    return datetime.now(UTC) - last > timedelta(hours=max_staleness_hours)
+
+
+def _upsert_and_embed(
+    conn: sqlite3.Connection,
+    collection: Any | None,
+    client: OpenAI | None,
+    events: list[dict[str, Any]],
+) -> int:
+    if not events:
+        return 0
+    event_ids: list[int] = []
+    docs: list[str] = []
+    for event in events:
+        event_id = upsert_event(conn, event)
+        event_ids.append(event_id)
+        docs.append(
+            " | ".join(
+                [
+                    str(event.get("title", "")),
+                    str(event.get("description", "")),
+                    str(event.get("location", "")),
+                ]
+            ).strip()
+        )
+
+    if collection is None or client is None:
+        return len(event_ids)
+
+    vectors = embed_batch(client, docs)
+    for idx, event_id in enumerate(event_ids):
+        vector = vectors[idx] if idx < len(vectors) else []
+        if not vector:
+            continue
+        event = events[idx]
+        upsert_event_embedding(
+            collection=collection,
+            event_id=event_id,
+            document=docs[idx],
+            embedding=vector,
+            metadata={
+                "date_start": event.get("date_start"),
+                "price_max": event.get("price_max"),
+                "source": event.get("source"),
+            },
+        )
+    return len(event_ids)
+
+
+def run_ingestion(
+    *,
+    conn: sqlite3.Connection,
+    settings: Settings,
+    collection: Any | None = None,
+    client: OpenAI | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    if not force and not should_refresh(conn, settings.ingestion_max_staleness_hours):
+        return {"status": "skipped", "reason": "fresh_enough", "events_upserted": 0}
+
+    run_id = create_ingestion_run(conn)
+    total_upserted = 0
+    required_failed: list[str] = []
+    errors: list[str] = []
+
+    try:
+        if settings.nyc_open_data_dataset_id:
+            raw = fetch_all_events(
+                dataset_id=settings.nyc_open_data_dataset_id,
+                app_token=settings.nyc_open_data_app_token,
+            )
+            normalized = normalize_events(raw)
+            inserted = _upsert_and_embed(conn, collection, client, normalized)
+            total_upserted += inserted
+            record_ingestion_source_check(
+                conn,
+                run_id=run_id,
+                source_name="nyc_open_data",
+                source_url="https://data.cityofnewyork.us/",
+                required=True,
+                status="success",
+                events_found=inserted,
+            )
+        else:
+            record_ingestion_source_check(
+                conn,
+                run_id=run_id,
+                source_name="nyc_open_data",
+                source_url="https://data.cityofnewyork.us/",
+                required=True,
+                status="skipped",
+                events_found=0,
+                error="NYC_OPEN_DATA_DATASET_ID not configured",
+            )
+            required_failed.append("nyc_open_data")
+
+        sources: list[SourceTarget] = load_sources(settings.scraper_sites_config_path)
+        for source in sources:
+            if not source.enabled:
+                record_ingestion_source_check(
+                    conn,
+                    run_id=run_id,
+                    source_name=source.name,
+                    source_url=source.url,
+                    required=source.required,
+                    status="skipped",
+                    events_found=0,
+                    error="disabled",
+                )
+                continue
+
+            try:
+                raw_scraped = scrape_site(source.url, source_name=source.name)
+                normalized_scraped = normalize_scraped_events(raw_scraped)
+                inserted = _upsert_and_embed(conn, collection, client, normalized_scraped)
+                total_upserted += inserted
+                status = "success" if inserted > 0 else "partial"
+                record_ingestion_source_check(
+                    conn,
+                    run_id=run_id,
+                    source_name=source.name,
+                    source_url=source.url,
+                    required=source.required,
+                    status=status,
+                    events_found=inserted,
+                    error="" if inserted > 0 else "no events extracted",
+                )
+            except requests.RequestException as exc:
+                if source.required:
+                    required_failed.append(source.name)
+                record_ingestion_source_check(
+                    conn,
+                    run_id=run_id,
+                    source_name=source.name,
+                    source_url=source.url,
+                    required=source.required,
+                    status="failed",
+                    events_found=0,
+                    error=str(exc),
+                )
+            except Exception as exc:
+                if source.required:
+                    required_failed.append(source.name)
+                record_ingestion_source_check(
+                    conn,
+                    run_id=run_id,
+                    source_name=source.name,
+                    source_url=source.url,
+                    required=source.required,
+                    status="failed",
+                    events_found=0,
+                    error=str(exc),
+                )
+
+        if required_failed:
+            status = "failed" if settings.ingestion_required_sources_strict else "degraded"
+            summary = f"required source failures: {', '.join(sorted(set(required_failed)))}"
+            finalize_ingestion_run(
+                conn,
+                run_id=run_id,
+                status=status,
+                total_events_upserted=total_upserted,
+                error_summary=summary,
+            )
+            return {
+                "status": status,
+                "events_upserted": total_upserted,
+                "required_failed": sorted(set(required_failed)),
+            }
+
+        finalize_ingestion_run(
+            conn,
+            run_id=run_id,
+            status="success",
+            total_events_upserted=total_upserted,
+            error_summary="",
+        )
+        return {"status": "success", "events_upserted": total_upserted}
+    except Exception as exc:
+        errors.append(str(exc))
+        finalize_ingestion_run(
+            conn,
+            run_id=run_id,
+            status="failed",
+            total_events_upserted=total_upserted,
+            error_summary="; ".join(errors)[:1000],
+        )
+        return {"status": "failed", "events_upserted": total_upserted, "errors": errors}
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--force", action="store_true")
+    args = parser.parse_args()
+
+    settings = load_settings()
+    from src.db.sqlite_client import get_connection, init_schema
+
+    conn = get_connection(settings.sqlite_db_path)
+    init_schema(conn)
+
+    collection = None
+    client: OpenAI | None = None
+    if settings.openai_api_key:
+        try:
+            from src.db.chroma_client import get_client, get_collection
+
+            chroma = get_client(settings.chroma_persist_dir)
+            collection = get_collection(chroma)
+            client = OpenAI(api_key=settings.openai_api_key, timeout=20.0, max_retries=3)
+        except Exception:
+            collection = None
+            client = None
+
+    result = run_ingestion(
+        conn=conn,
+        settings=settings,
+        collection=collection,
+        client=client,
+        force=args.force,
+    )
+    print(result)
+
+
+if __name__ == "__main__":
+    main()
