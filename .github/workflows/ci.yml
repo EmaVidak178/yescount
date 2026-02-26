@@ -12,6 +12,8 @@ permissions:
 jobs:
   quality-gates:
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
