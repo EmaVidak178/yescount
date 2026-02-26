@@ -3,15 +3,16 @@ from __future__ import annotations
 import argparse
 import importlib
 import pkgutil
+from typing import Any
 
 from src.db.sqlite_client import get_connection
 
 
-def _is_postgres(conn: object) -> bool:
-    return conn.__class__.__module__.startswith("psycopg")
+def _is_postgres(conn: Any) -> bool:
+    return bool(conn.__class__.__module__.startswith("psycopg"))
 
 
-def ensure_migrations_table(conn: object) -> None:
+def ensure_migrations_table(conn: Any) -> None:
     if _is_postgres(conn):
         cur = conn.cursor()
         cur.execute(
@@ -36,7 +37,7 @@ def ensure_migrations_table(conn: object) -> None:
     conn.commit()
 
 
-def applied_migration_names(conn: object) -> set[str]:
+def applied_migration_names(conn: Any) -> set[str]:
     cur = conn.cursor() if _is_postgres(conn) else conn
     rows = cur.execute("SELECT name FROM _migrations").fetchall()
     return {row[0] for row in rows}

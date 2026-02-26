@@ -199,7 +199,7 @@ POSTGRES_SCHEMA_STATEMENTS = [
 
 
 def _is_postgres(conn: Any) -> bool:
-    return conn.__class__.__module__.startswith("psycopg")
+    return bool(conn.__class__.__module__.startswith("psycopg"))
 
 
 def _now_expr(conn: Any) -> str:
@@ -376,7 +376,7 @@ def update_session_status(conn: Any, session_id: str, status: str) -> bool:
         [status, session_id],
     )
     conn.commit()
-    return cur.rowcount > 0
+    return bool(cur.rowcount > 0)
 
 
 def create_or_get_participant(conn: Any, session_id: str, name: str) -> int:
