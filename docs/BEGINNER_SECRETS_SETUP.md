@@ -206,7 +206,7 @@ BASE_URL = "https://your-app-name.streamlit.app"
 DATABASE_URL = "postgresql://user:password@host:5432/dbname"
 
 SCRAPER_SITES_CONFIG_PATH = "config/scraper_sites.yaml"
-INGESTION_AUTO_REFRESH = "true"
+INGESTION_AUTO_REFRESH = "false"
 INGESTION_MAX_STALENESS_HOURS = "192"
 INGESTION_REQUIRED_SOURCES_STRICT = "true"
 ```
@@ -223,6 +223,44 @@ How to replace values:
 
 Beginner tip:
 - If your password contains special characters and your provider gives you an encoded URL, always use the exact URL from provider copy button.
+
+### Exact copy/paste template (safe version)
+
+If you get formatting issues, clear the box and paste this exact block first:
+
+```toml
+OPENAI_API_KEY = "YOUR_OPENAI_KEY"
+NYC_OPEN_DATA_APP_TOKEN = "YOUR_NYC_APP_TOKEN"
+NYC_OPEN_DATA_DATASET_ID = "tvpp-9vvx"
+BASE_URL = "https://yescount-nyc.streamlit.app"
+DATABASE_URL = "YOUR_NEON_DATABASE_URL"
+
+SCRAPER_SITES_CONFIG_PATH = "config/scraper_sites.yaml"
+INGESTION_AUTO_REFRESH = "false"
+INGESTION_MAX_STALENESS_HOURS = "192"
+INGESTION_REQUIRED_SOURCES_STRICT = "true"
+```
+
+Then replace only values inside quotes.
+
+Placement note:
+- Paste `INGESTION_AUTO_REFRESH = "false"` in the same secrets block as the other keys.
+- It can be anywhere in the block (top, middle, or end), as long as it is one full line in `KEY = "value"` format.
+
+Why we set this to false now:
+- On first deployment, automatic startup ingestion can make the app appear blank while long ingestion runs.
+- With `false`, app UI loads quickly.
+- You will refresh data via manual/scheduled GitHub workflow instead.
+
+### If Streamlit shows: "Invalid format: please enter valid TOML"
+
+This is usually a syntax typo. Fix with this checklist:
+- Remove everything and re-paste the template above.
+- Make sure every line looks exactly like `KEY = "value"`.
+- Use normal double quotes (`"`), not smart quotes (`“ ”`).
+- Do not include markdown backticks or comments in the secrets box.
+- Keep `DATABASE_URL` on one single line.
+- Ensure there are no missing closing quotes.
 
 ## Step 6: Set Secrets in GitHub Actions (Weekly Friday Workflow)
 
@@ -259,6 +297,9 @@ This is required for the scheduled ingestion workflow.
    - scheduled trigger (Friday)
    - manual trigger (`workflow_dispatch`)
 4. For first launch, click **Run workflow** once manually to verify.
+
+Important for current setup:
+- Because `INGESTION_AUTO_REFRESH` is set to `"false"`, run this workflow manually after deploy so the app has fresh ingested data.
 
 ## Step 8: Local Sanity Test (Optional but Recommended)
 
