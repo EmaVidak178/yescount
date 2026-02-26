@@ -47,7 +47,7 @@ jobs:
       - name: Unit tests with coverage
         run: make test
         env:
-          OPENAI_API_KEY: sk-test-fake-key-for-ci
+          OPENAI_API_KEY: sk-test-fake-key-for-ci # pragma: allowlist secret
           NYC_OPEN_DATA_APP_TOKEN: fake-token-for-ci
           NYC_OPEN_DATA_DATASET_ID: fake-dataset-for-ci
           BASE_URL: https://example.com
@@ -55,7 +55,7 @@ jobs:
       - name: Integration tests
         run: make integration
         env:
-          OPENAI_API_KEY: sk-test-fake-key-for-ci
+          OPENAI_API_KEY: sk-test-fake-key-for-ci # pragma: allowlist secret
           NYC_OPEN_DATA_APP_TOKEN: fake-token-for-ci
           NYC_OPEN_DATA_DATASET_ID: fake-dataset-for-ci
           BASE_URL: https://example.com
@@ -63,7 +63,7 @@ jobs:
       - name: Smoke tests
         run: make smoke
         env:
-          OPENAI_API_KEY: sk-test-fake-key-for-ci
+          OPENAI_API_KEY: sk-test-fake-key-for-ci # pragma: allowlist secret
           NYC_OPEN_DATA_APP_TOKEN: fake-token-for-ci
           NYC_OPEN_DATA_DATASET_ID: fake-dataset-for-ci
           BASE_URL: https://example.com

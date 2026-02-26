@@ -273,7 +273,7 @@ jobs:
       - name: Test
         run: make test
         env:
-          OPENAI_API_KEY: "sk-test-fake-key-for-ci"
+          OPENAI_API_KEY: "sk-test-fake-key-for-ci" # pragma: allowlist secret
           NYC_OPEN_DATA_APP_TOKEN: "fake-token-for-ci"
 ```
 
@@ -409,7 +409,7 @@ In the Streamlit Cloud dashboard:
 Streamlit Cloud secrets are set via the dashboard UI (Settings > Secrets) in TOML format:
 
 ```toml
-OPENAI_API_KEY = "sk-..."
+OPENAI_API_KEY = "sk-..." # pragma: allowlist secret
 NYC_OPEN_DATA_APP_TOKEN = "..."
 ```
 
