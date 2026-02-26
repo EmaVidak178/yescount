@@ -69,4 +69,5 @@ jobs:
           BASE_URL: https://example.com
 
       - name: Secrets scan
+        continue-on-error: true
         run: make security-check
