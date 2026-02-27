@@ -14,7 +14,7 @@ This PRD contains aspirational layout detail; the following shipped behavior is 
 
 - Landing includes hero media (`assets/yescount-hero.png`) with fallback branding and create/join CTA cards.
 - Session date range is hard-capped to 31 days from selected start date (UI + server guard).
-- Voting screen uses curated websites-only cards (max 30), with monthly target/deadline messaging.
+- Voting is always open; swipe view shows `What do you want to do this month?` and organizer progress while cards remain constrained to the session date range (max ~31 days).
 - Event cards use a 3-column masonry presentation with image-first cards and fallback placeholders when media is unavailable.
 - Card copy uses LLM-generated short title and summary when available.
 - Event cards show compact schedule labels:

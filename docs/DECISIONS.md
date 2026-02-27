@@ -71,12 +71,12 @@ Owner: implementation agent
 - Full durable vector migration remains a next-phase milestone.
 - Canonical reference: `docs/HYBRID_STRATEGY_HISTORY_AND_GUIDE.md`.
 
-## 9) Voting Window and Monthly Scope
+## 9) Voting Access and Monthly Scope
 
-- Voting month is computed as the next calendar month.
-- Voting UI prominently shows the target month and deadline.
-- Voting is intended to open on Friday of the last week of the current month and close on day 1 of the target month (UTC), and the app enforces open/closed state in UI.
-- If strict target-month curation yields zero cards, fallback curation shows upcoming website-sourced events to avoid an empty voting screen.
+- Voting is always open (no global deadline gate in UI).
+- Event visibility for voting is constrained by each session's configured date range, with a max ~31-day cap from start date.
+- Swipe UI copy is simplified to `What do you want to do this month?`.
+- Organizers get a live progress cue (`voted/joined`, `availability/joined`) and decide when to lock the session.
 
 ## 10) Curation Policy for Voting Cards
 

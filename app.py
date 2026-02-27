@@ -46,7 +46,6 @@ from src.sessions.manager import (
 )
 from src.utils.health import readiness
 from src.utils.invite_text import generate_invite
-from src.utils.voting_window import get_voting_window
 
 
 def _format_date_for_ui(value: Any) -> str:
@@ -284,18 +283,6 @@ def _render_top_banner() -> None:
             """,
             unsafe_allow_html=True,
         )
-
-
-def _voting_context() -> dict[str, Any]:
-    window = get_voting_window(datetime.now(UTC))
-    month_label = datetime(window.target_year, window.target_month, 1).strftime("%B %Y")
-    return {
-        "target_year": window.target_year,
-        "target_month": window.target_month,
-        "month_label": month_label,
-        "deadline_label": window.deadline_label,
-        "is_open": window.is_open,
-    }
 
 
 def _execute_sql(conn: Any, sql: str, params: tuple[Any, ...]) -> Any:
@@ -713,10 +700,7 @@ def render_landing() -> None:
     _render_landing_hero()
     runtime = get_runtime()
     conn = runtime["conn"]
-    voting = _voting_context()
-    st.info(f"Now voting for {voting['month_label']}. Deadline: {voting['deadline_label']}.")
-    if not voting["is_open"]:
-        st.warning("Voting is currently closed. You can still create/join sessions.")
+    st.info("What do you want to do this month?")
     col_a, col_b = st.columns(2)
 
     with col_a:

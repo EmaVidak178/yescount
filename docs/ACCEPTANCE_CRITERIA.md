@@ -10,7 +10,7 @@ This matrix maps core PRD requirements to testable acceptance outcomes.
 | FE-02 | Session welcome routing | `?session=<uuid>` routes to welcome view with preview data for valid sessions. |
 | FE-03 | Name validation | Participant names must be 1-50 chars and match allowed charset; invalid names show inline error and prevent submit. |
 | FE-04 | Curated voting cards | Swipe view renders up to 30 curated websites-only cards with clear title, short summary, schedule label, location, and optional price metadata. |
-| FE-05 | Monthly voting window | Voting view shows target month + deadline and blocks voting interactions when the voting window is closed. |
+| FE-05 | Always-open voting | Voting remains open at all times; event visibility is constrained by each session date range (max ~31 days), and organizer progress is visible in swipe view. |
 | FE-06 | Empty-month fallback | If strict target-month curation returns zero events, UI falls back to upcoming websites-only curated cards instead of showing a permanently empty state. |
 | FE-07 | Calendar editing | Participant can mark one evening slot per day as `Available`/`Unavailable`/`No response`, and persisted availability maps only `Available` to a stored slot. |
 | FE-08 | Group results | Results view renders top recommendations, interested participant names per event, and top overlap dates/times for gathering. |
