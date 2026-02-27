@@ -8,6 +8,20 @@
 
 YesCount's frontend is a single Streamlit application (`app.py`) that renders three core views and a session management flow. There is no separate API layer -- the Streamlit script imports backend modules directly. This document specifies every view, its components, state management, and Streamlit-specific implementation patterns.
 
+### 1.1 Current Implementation Notes (2026-02)
+
+This PRD contains aspirational layout detail; the following shipped behavior is authoritative for the current build:
+
+- Landing includes hero media (`assets/yescount-hero.png`) with fallback branding and create/join CTA cards.
+- Session date range is hard-capped to 31 days from selected start date (UI + server guard).
+- Voting screen uses curated websites-only cards (max 30), with monthly target/deadline messaging.
+- Event cards show compact schedule labels:
+  - specific date/time for single-date events,
+  - concise date ranges when start/end are present,
+  - `Multiple dates in <month>` for recurring-style listings.
+- Availability UI is simplified to a single evening slot per day with tri-state controls (`No response`, `Available`, `Unavailable`).
+- Results show interested participant names per event and best overlap dates/times.
+
 ---
 
 ## 2. Application Shell

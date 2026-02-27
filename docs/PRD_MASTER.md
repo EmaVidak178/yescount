@@ -135,11 +135,11 @@ flowchart TD
 | Layer | Choice |
 |-------|--------|
 | Frontend | Streamlit |
-| Structured DB | SQLite |
+| Structured DB | Hosted Postgres (Neon) in deployment; SQLite fallback for local/dev |
 | Vector DB | ChromaDB |
 | LLM | OpenAI GPT-4.1 |
 | Embeddings | OpenAI `text-embedding-3-small` |
-| Event Sources | NYC Open Data (Socrata API), web scraping (sites TBD) |
+| Event Sources | Required website scraping targets (6 configured sources); voting list is websites-only curated cards |
 | Multi-user | Shareable session link (URL-based, no auth) |
 | Deployment | GitHub + Streamlit Community Cloud |
 
@@ -180,12 +180,12 @@ flowchart TD
 | Category | Requirement |
 |----------|-------------|
 | **Performance** | RAG search returns results in < 3 seconds for a corpus of up to 5,000 events |
-| **Data Freshness** | Event data refreshed at least once daily via scheduled ingestion |
+| **Data Freshness** | Event data refreshed at least weekly on Friday via scheduled ingestion, with manual run support |
 | **Concurrency** | Up to 10 concurrent participants per session (Streamlit server-side state) |
 | **Browser Support** | Chrome, Firefox, Safari (latest two major versions) |
 | **Accessibility** | Keyboard-navigable swipe view; sufficient color contrast on calendar grid |
 | **Security** | No PII stored beyond first names; session links expire after 7 days by default |
-| **Scalability** | SQLite is acceptable for single-server deployment; migration path to PostgreSQL documented but not implemented |
+| **Scalability** | MVP runs with hosted Postgres for durable session/vote data; vector durability remains a later track |
 
 ### 7.1 Deploy Success Criteria (Release Gates)
 

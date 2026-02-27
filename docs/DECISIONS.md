@@ -66,3 +66,34 @@ Owner: implementation agent
 - Streamlit Cloud ephemeral storage is accepted for MVP.
 - Production-readiness requires migration to durable SQL and vector stores.
 - Migration path and rollback checks are release-gated.
+
+## 9) Voting Window and Monthly Scope
+
+- Voting month is computed as the next calendar month.
+- Voting UI prominently shows the target month and deadline.
+- Voting is intended to open on Friday of the last week of the current month and close on day 1 of the target month (UTC), and the app enforces open/closed state in UI.
+- If strict target-month curation yields zero cards, fallback curation shows upcoming website-sourced events to avoid an empty voting screen.
+
+## 10) Curation Policy for Voting Cards
+
+- Voting cards are websites-only (`source == "scraped"`), capped at 30 cards.
+- Event quality ranking uses text richness and priority keyword scoring.
+- Event schedule display on cards follows:
+  - single-date events: specific date/time,
+  - bounded date ranges: short range label (for example, `Aug 19 - Aug 21`),
+  - recurring/multi-date patterns: `Multiple dates in <month>`.
+
+## 11) Landing and Session Date Boundaries
+
+- Landing screen includes a hero image (`assets/yescount-hero.png`) with fallback branding if the image is missing.
+- Session creation date range is hard-capped to 31 days from selected start date:
+  - UI cap via `st.date_input(max_value=...)`,
+  - server-side guard before session creation.
+
+## 12) Availability UX Simplification
+
+- Availability is simplified to a single evening slot per day (`19:00-22:00`).
+- Each day uses explicit tri-state selection:
+  - `No response`,
+  - `Available`,
+  - `Unavailable`.

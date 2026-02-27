@@ -8,6 +8,17 @@
 
 YesCount runs as a single Streamlit application with no separate API server. All backend logic lives in Python modules imported by `app.py`. This document specifies the module structure, the RAG pipeline, the recommendation algorithm, the session lifecycle, error handling, and required environment variables.
 
+### 1.1 Current Implementation Notes (2026-02)
+
+The following behaviors are currently implemented and should be treated as active requirements:
+
+- SQL layer supports both SQLite and Postgres parameter styles, with deployed durability targeting hosted Postgres via `DATABASE_URL`.
+- Readiness treats database as required and Chroma as optional/degraded.
+- Weekly ingestion runs on Friday with required source tracking per run.
+- Website scraping uses a generic parser and now performs best-effort date extraction from card text to improve monthly curation accuracy.
+- Voting curation is websites-only, top 30, and includes a fallback to upcoming website events when strict target-month filtering yields no cards.
+- Session preview query grouping is Postgres-safe (`GROUP BY` includes selected non-aggregated columns).
+
 ---
 
 ## 2. Project Structure
