@@ -31,7 +31,8 @@ def apply_hard_filters(
 ) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for event in events:
-        event_date = (event.get("date_start") or "")[:10]
+        val = event.get("date_start")
+        event_date = str(val)[:10] if val else ""
         if (
             prefs.budget_cap is not None
             and event.get("price_max") not in (None, "")

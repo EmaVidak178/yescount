@@ -11,6 +11,16 @@ from typing import Any
 PRIORITY_KEYWORDS = frozenset(
     {"immersive", "theater", "theatre", "pop-up", "popup", "exhibit", "festival"}
 )
+# Content that suggests NOT an event (news, guides, closures, lists)
+NON_EVENT_KEYWORDS = frozenset(
+    {
+        "cheapest", "closure", "closed", "closing", "permanently closed",
+        "news", "article", "report", "roundup", "guide to",
+        "best bakery", "best restaurant", "best bars", "best things",
+        "permanently shut", "shut down", "going out of business",
+        "list of", "top 10", "top 15", "top 20", "things to know",
+    }
+)
 DEFAULT_TOP_N = 30
 
 
@@ -53,6 +63,14 @@ def _keyword_score(event: dict[str, Any]) -> float:
 def _quality_score(event: dict[str, Any]) -> float:
     """Combined quality heuristic: richness + priority keywords."""
     return _richness_score(event) + _keyword_score(event)
+
+
+def _looks_like_event(event: dict[str, Any]) -> bool:
+    """Return False if content suggests a non-event (news, guide, closure, etc.)."""
+    title = (event.get("title") or "").lower()
+    desc = (event.get("description") or "").lower()
+    text = f"{title} {desc}"
+    return not any(kw in text for kw in NON_EVENT_KEYWORDS)
 
 
 def _in_target_month(dt: datetime | None, year: int | None, month: int | None) -> bool:
@@ -100,6 +118,8 @@ def curate_voting_events(
 
     filtered: list[dict[str, Any]] = []
     for ev in website_events:
+        if not _looks_like_event(ev):
+            continue
         dt = _parse_date_start(ev.get("date_start"))
         if _in_target_month(dt, target_year, target_month):
             filtered.append(ev)
@@ -110,10 +130,12 @@ def curate_voting_events(
         now_date = datetime.now(UTC).date()
         upcoming = []
         for ev in website_events:
+            if not _looks_like_event(ev):
+                continue
             dt = _parse_date_start(ev.get("date_start"))
             if dt is not None and dt.date() >= now_date:
                 upcoming.append(ev)
-        filtered = upcoming if upcoming else website_events
+        filtered = upcoming if upcoming else [e for e in website_events if _looks_like_event(e)]
 
     def sort_key(e: dict[str, Any]) -> tuple[float, int, str]:
         q = -_quality_score(e)  # negate for descending

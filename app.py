@@ -14,6 +14,7 @@ from src.config.settings import ensure_runtime_dirs, load_settings, validate_set
 from src.db.chroma_client import get_client as get_chroma_client
 from src.db.chroma_client import get_collection as get_chroma_collection
 from src.db.sqlite_client import (
+    get_availability,
     get_connection,
     get_events,
     get_participants,
@@ -29,7 +30,7 @@ from src.engine.voting import (
     get_session_vote_tallies,
 )
 from src.ingestion.run_ingestion import run_ingestion
-from src.rag.llm_chain import summarize_events
+from src.rag.llm_chain import generate_event_titles_batch, summarize_events
 from src.rag.retriever import retrieve_events
 from src.sessions.manager import (
     create_new_session,
@@ -258,11 +259,92 @@ def _voting_context() -> dict[str, Any]:
     }
 
 
-def _event_title(event: dict[str, Any]) -> str:
+def _event_title(event: dict[str, Any], max_len: int = 60) -> str:
+    """Return display title, truncated at word boundary."""
     raw = str(event.get("title", "")).strip()
     if not raw:
         return "NYC event"
-    return raw
+    if len(raw) <= max_len:
+        return raw
+    cut = raw[: max_len + 1].rfind(" ")
+    return (raw[: cut] + "...") if cut > max_len // 2 else (raw[:max_len] + "...")
+
+
+def _inject_mosaic_styles() -> None:
+    st.markdown(
+        """
+        <style>
+        [data-testid="stVerticalBlock"] > div[data-testid="stVerticalBlock"] {
+            background: linear-gradient(135deg, rgba(109,40,217,0.08) 0%, rgba(2,132,199,0.06) 100%);
+            border: 1px solid rgba(109,40,217,0.3);
+            border-radius: 12px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _get_event_display_titles(events: list[dict[str, Any]]) -> dict[int, str]:
+    """Fetch LLM-generated titles for events; cache in session_state; fallback to truncated."""
+    cache_key = "swipe_display_titles"
+    event_ids = tuple(int(e.get("id") or 0) for e in events)
+    if cache_key not in st.session_state:
+        st.session_state[cache_key] = {}
+    cached = st.session_state[cache_key]
+    if cached.get("_ids") == event_ids and cached.get("titles"):
+        return cached["titles"]
+    runtime = get_runtime()
+    client = runtime.get("client")
+    if client is not None:
+        titles = generate_event_titles_batch(client, events)
+        if titles:
+            st.session_state[cache_key] = {"_ids": event_ids, "titles": titles}
+            return titles
+    return {}
+
+
+def _render_event_card(
+    event: dict[str, Any],
+    *,
+    idx: int,
+    voting: dict[str, Any],
+    selected_ids: list[int],
+    display_titles: dict[int, str] | None = None,
+) -> None:
+    """Render one event card for mosaic (image, title, desc, date, checkbox)."""
+    eid = int(event.get("id") or 0)
+    title = (display_titles or {}).get(eid) or _event_title(event)
+    img_url = _event_image_url(event)
+    desc = str(event.get("description", "")).strip()
+    if len(desc) > 180:
+        cut = desc[:181].rfind(" ")
+        desc_snippet = (desc[: cut] + "...") if cut > 90 else (desc[:180] + "...")
+    else:
+        desc_snippet = desc
+    meta_parts: list[str] = []
+    schedule_label = _event_schedule_label(event, month_label=voting["month_label"])
+    if schedule_label:
+        meta_parts.append(f"When: {schedule_label}")
+    location = str(event.get("location", "")).strip()
+    if location:
+        meta_parts.append(f"Where: {location}")
+    price_str = _format_price_for_ui(event.get("price_max"))
+    if price_str:
+        meta_parts.append(f"Price: {price_str}")
+    meta_str = " | ".join(meta_parts) if meta_parts else ""
+    with st.container(border=True):
+        if img_url:
+            st.image(img_url, use_container_width=True)
+        st.markdown(f"**{idx}. {title}**")
+        if desc_snippet:
+            st.caption(desc_snippet)
+        if meta_str:
+            st.write(meta_str)
+        if st.checkbox("Interested", key=f"vote_event_{event['id']}"):
+            selected_ids.append(int(event["id"]))
 
 
 @st.cache_resource
@@ -615,33 +697,22 @@ def render_swipe() -> None:
         return
 
     st.markdown(f"### {len(events)}/30: Select Your Favorites!")
+    _inject_mosaic_styles()
+    display_titles = _get_event_display_titles(events)
     selected_ids: list[int] = []
     with st.form("vote_form"):
-        for idx, event in enumerate(events, start=1):
-            img_url = _event_image_url(event)
-            desc = str(event.get("description", "")).strip()
-            desc_snippet = (desc[:220] + ("..." if len(desc) > 220 else "")) if desc else ""
-            meta_parts: list[str] = []
-            schedule_label = _event_schedule_label(event, month_label=voting["month_label"])
-            if schedule_label:
-                meta_parts.append(f"When: {schedule_label}")
-            location = str(event.get("location", "")).strip()
-            if location:
-                meta_parts.append(f"Where: {location}")
-            price_str = _format_price_for_ui(event.get("price_max"))
-            if price_str:
-                meta_parts.append(f"Price: {price_str}")
-            meta_str = " | ".join(meta_parts) if meta_parts else ""
-            with st.container(border=True):
-                if img_url:
-                    st.image(img_url, use_container_width=True)
-                st.markdown(f"**{idx}. {_event_title(event)}**")
-                if desc_snippet:
-                    st.caption(desc_snippet)
-                if meta_str:
-                    st.write(meta_str)
-                if st.checkbox("Interested", key=f"vote_event_{event['id']}"):
-                    selected_ids.append(int(event["id"]))
+        for row_start in range(0, len(events), 3):
+            row_events = events[row_start : row_start + 3]
+            cols = st.columns(3)
+            for col_idx, event in enumerate(row_events):
+                with cols[col_idx]:
+                    _render_event_card(
+                        event,
+                        idx=row_start + col_idx + 1,
+                        voting=voting,
+                        selected_ids=selected_ids,
+                        display_titles=display_titles,
+                    )
         submitted = st.form_submit_button("Save votes and continue")
 
     if submitted:
@@ -679,6 +750,66 @@ def _date_range_for_session() -> list[date]:
     return out
 
 
+def _render_calendar_month_grid(
+    date_window: list[date],
+    existing_available: set[str],
+) -> list[tuple[str, str, str]]:
+    """Full month grid: 4-5 rows (weeks), 7 cols (days). Green=available, red=unavailable, white=no response."""
+    if "calendar_slot_state" not in st.session_state:
+        st.session_state.calendar_slot_state = {
+            d.isoformat(): "available" if d.isoformat() in existing_available else "no_response"
+            for d in date_window
+        }
+    state = st.session_state.calendar_slot_state
+    _inject_calendar_styles()
+    weekday_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    header_cols = st.columns(7)
+    for i, name in enumerate(weekday_names):
+        with header_cols[i]:
+            st.markdown(f"**{name}**")
+    # Pad first week so day 1 aligns with correct weekday (Mon=0)
+    first = date_window[0]
+    pad = (first.weekday()) % 7  # Monday=0
+    padded: list[date | None] = [None] * pad + list(date_window)
+    # Build rows of 7
+    selected: list[tuple[str, str, str]] = []
+    for row_start in range(0, len(padded), 7):
+        row_days = padded[row_start : row_start + 7]
+        row_cols = st.columns(7)
+        for col_idx, day in enumerate(row_days):
+            with row_cols[col_idx]:
+                if day is None:
+                    st.markdown("")
+                    continue
+                day_str = day.isoformat()
+                current = state.get(day_str, "no_response")
+                cycle = {"no_response": "available", "available": "unavailable", "unavailable": "no_response"}
+                colors = {"no_response": "#f0f0f0", "available": "#22c55e", "unavailable": "#ef4444"}
+                btn_label = day.strftime("%d")
+                if st.button(
+                    btn_label,
+                    key=f"cal_btn_{day_str}",
+                    type="secondary",
+                ):
+                    state[day_str] = cycle[current]
+                    st.rerun()
+                st.markdown(
+                    f'<div style="width:100%;height:4px;background:{colors[current]};'
+                    f'border-radius:2px;margin-top:2px;"></div>',
+                    unsafe_allow_html=True,
+                )
+                if current == "available":
+                    selected.append((day_str, "19:00", "22:00"))
+    return selected
+
+
+def _inject_calendar_styles() -> None:
+    st.markdown(
+        "<style>.stButton > button { min-width: 2.5rem; }</style>",
+        unsafe_allow_html=True,
+    )
+
+
 def render_calendar() -> None:
     runtime = get_runtime()
     conn = runtime["conn"]
@@ -688,41 +819,18 @@ def render_calendar() -> None:
         st.warning("No participants found.")
         return
     date_window = _date_range_for_session()
-    week_start = st.session_state.calendar_week_offset * 7
-    week_days = date_window[week_start : week_start + 7]
-    if not week_days:
-        st.info("No more weeks in date range.")
+    if not date_window:
+        st.info("No dates in range.")
         return
-    # Header row: Mon through Sun
-    weekday_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    header_cols = st.columns(7)
-    for i, name in enumerate(weekday_names):
-        with header_cols[i]:
-            st.markdown(f"**{name}**")
-    # Data row: one cell per day with date + tri-state choice
-    selected: list[tuple[str, str, str]] = []
-    data_cols = st.columns(7)
-    for i, day in enumerate(week_days):
-        with data_cols[i]:
-            day_label = day.strftime("%b %d")
-            st.markdown(day_label)
-            state_key = f"slot_state_{day.isoformat()}_19_22"
-            choice = st.radio(
-                "Evening slot (7:00 PM - 10:00 PM)",
-                options=["No response", "Available", "Unavailable"],
-                horizontal=True,
-                key=state_key,
-                label_visibility="collapsed",
-            )
-            if choice == "Available":
-                selected.append((day.isoformat(), "19:00", "22:00"))
-    b_prev, b_submit, b_next, b_results = st.columns(4)
-    with b_prev:
-        if st.button("Prev week"):
-            st.session_state.calendar_week_offset = max(
-                0, st.session_state.calendar_week_offset - 1
-            )
-            st.rerun()
+    # Load existing availability
+    slots = get_availability(conn, st.session_state.session_id)
+    existing = {
+        row["date"] for row in slots
+        if int(row.get("participant_id", 0)) == st.session_state.participant_id
+    }
+    selected = _render_calendar_month_grid(date_window, existing)
+    st.caption("Click a date to cycle: No response → Available (green) → Unavailable (red)")
+    b_submit, b_results = st.columns(2)
     with b_submit:
         if st.button("Submit availability"):
             set_availability(
@@ -731,10 +839,9 @@ def render_calendar() -> None:
                 st.session_state.participant_id,
                 selected,
             )
+            if "calendar_slot_state" in st.session_state:
+                del st.session_state.calendar_slot_state
             st.success("Availability saved.")
-    with b_next:
-        if st.button("Next week"):
-            st.session_state.calendar_week_offset += 1
             st.rerun()
     with b_results:
         if st.button("See results"):
