@@ -30,6 +30,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           NYC_OPEN_DATA_APP_TOKEN: ${{ secrets.NYC_OPEN_DATA_APP_TOKEN }}
           NYC_OPEN_DATA_DATASET_ID: ${{ secrets.NYC_OPEN_DATA_DATASET_ID }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BASE_URL: ${{ secrets.BASE_URL }}
           SQLITE_DB_PATH: data/yescount.db
           CHROMA_PERSIST_DIR: data/chroma/
           SCRAPER_SITES_CONFIG_PATH: config/scraper_sites.yaml

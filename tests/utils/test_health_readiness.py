@@ -14,19 +14,31 @@ class _BrokenCollection:
 
 
 def test_readiness_ok_with_sqlite_and_chroma(sqlite_db):
+    """Database and Chroma both ready -> ok."""
     status = readiness(sqlite_db, _HealthyCollection())
     assert status["ok"] is True
-    assert status["dependencies"]["sqlite"] == "ready"
+    assert status["dependencies"]["database"] == "ready"
     assert status["dependencies"]["chroma"] == "ready"
 
 
-def test_readiness_fails_without_chroma(sqlite_db):
+def test_readiness_ok_when_chroma_degraded_unavailable(sqlite_db):
+    """Database required; Chroma optional. When Chroma is None, readiness still passes."""
     status = readiness(sqlite_db, None)
-    assert status["ok"] is False
-    assert "error" in status["dependencies"]["chroma"]
+    assert status["ok"] is True
+    assert status["dependencies"]["database"] == "ready"
+    assert "degraded" in status["dependencies"]["chroma"]
 
 
-def test_readiness_fails_when_chroma_raises(sqlite_db):
+def test_readiness_ok_when_chroma_raises(sqlite_db):
+    """Database required; Chroma optional. When Chroma raises, readiness still passes."""
     status = readiness(sqlite_db, _BrokenCollection())
+    assert status["ok"] is True
+    assert status["dependencies"]["database"] == "ready"
+    assert "degraded" in status["dependencies"]["chroma"]
+
+
+def test_readiness_fails_when_database_unavailable():
+    """Readiness fails when database connection is None."""
+    status = readiness(None, _HealthyCollection())
     assert status["ok"] is False
-    assert "error" in status["dependencies"]["chroma"]
+    assert "error" in status["dependencies"]["database"]

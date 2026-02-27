@@ -32,10 +32,14 @@
 
 ## Secret Setup Checklist
 
+Weekly ingestion uses `DATABASE_URL` and `BASE_URL` so it writes to the same durable storage as the app.
+
 For GitHub Actions (`weekly_ingestion.yml`):
 - `OPENAI_API_KEY`
 - `NYC_OPEN_DATA_APP_TOKEN`
 - `NYC_OPEN_DATA_DATASET_ID`
+- `DATABASE_URL` (same Postgres as app)
+- `BASE_URL` (deployed app URL)
 
 For Streamlit app secrets:
 - `OPENAI_API_KEY`
@@ -75,3 +79,20 @@ or
 ```bash
 make ingest
 ```
+
+## CI Secrets-Scan
+
+Currently non-blocking (`continue-on-error: true`). Rationale: CI uses fake keys for tests; real keys live only in Streamlit/GitHub secrets. Scan may flag test fixtures—kept as a warning, not a gate.
+
+## Post-Deploy Verification & Rollback
+
+**Verify (in order):**
+- [ ] App loads without startup errors.
+- [ ] Manual Weekly Ingestion run succeeds.
+- [ ] Durability: create session, add vote, restart app, confirm data persists.
+- [ ] End-to-end: create -> join -> vote -> availability -> results.
+
+**Rollback if needed:**
+1. Streamlit Cloud: Redeploy previous revision.
+2. If data wrong: restore DB snapshot from provider.
+3. Re-run verification before reopening.

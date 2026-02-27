@@ -12,7 +12,7 @@ Move from MVP deployment (ephemeral local disk on Streamlit Cloud) to reliable u
    - unit tests + coverage
    - integration tests
    - smoke tests
-   - secrets scan
+   - secrets scan (currently non-blocking; CI uses fake keys, real keys in secrets only)
 2. Startup validation passes in target environment.
 3. Readiness reports all required dependencies as ready.
 4. Critical journey smoke test passes after deploy.

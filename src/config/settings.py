@@ -69,6 +69,8 @@ def validate_settings(settings: Settings) -> list[str]:
         ("postgres://", "postgresql://")
     ):
         errors.append("DATABASE_URL must start with postgres:// or postgresql://")
+    if not (settings.scraper_sites_config_path and settings.scraper_sites_config_path.strip()):
+        errors.append("SCRAPER_SITES_CONFIG_PATH is required")
     return errors
 
 

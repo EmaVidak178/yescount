@@ -68,6 +68,8 @@ jobs:
           NYC_OPEN_DATA_DATASET_ID: fake-dataset-for-ci
           BASE_URL: https://example.com
 
+      # Secrets scan: uses detect-secrets baseline + allowlist pragmas in ci.yml.
+      # continue-on-error avoids false positives (e.g. allowlisted fake CI keys) blocking CI.
       - name: Secrets scan
         continue-on-error: true
         run: make security-check

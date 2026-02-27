@@ -264,7 +264,7 @@ This is usually a syntax typo. Fix with this checklist:
 
 ## Step 6: Set Secrets in GitHub Actions (Weekly Friday Workflow)
 
-This is required for the scheduled ingestion workflow.
+This is required for the scheduled ingestion workflow. Weekly ingestion uses the same durable storage as the app, so it needs `DATABASE_URL` and `BASE_URL`.
 
 1. Open your repository on GitHub.
 2. Click **Settings** (repo settings, not profile settings).
@@ -283,9 +283,13 @@ This is required for the scheduled ingestion workflow.
 - Name: `NYC_OPEN_DATA_DATASET_ID`
 - Secret: your dataset ID (e.g., `abcd-1234`)
 
-### Secret D (recommended now)
+### Secret D (required for durable storage)
 - Name: `DATABASE_URL`
-- Secret: full PostgreSQL connection URL
+- Secret: full PostgreSQL connection URL (same as Streamlit)
+
+### Secret E
+- Name: `BASE_URL`
+- Secret: your deployed app URL (e.g., `https://your-app.streamlit.app`)
 
 5. Save each secret.
 
@@ -326,6 +330,21 @@ After deployment:
 4. Check for warnings:
    - if ingestion warning appears, inspect logs and workflow run output.
 5. In app behavior, ensure events load and search works.
+
+## Post-Deploy Verification & Rollback Checklist
+
+Use this after each deploy or when troubleshooting.
+
+**Verify (do in order):**
+- [ ] App loads at production URL without startup errors.
+- [ ] Manual Weekly Ingestion workflow run succeeds in GitHub Actions.
+- [ ] Durability check: create session, add vote, restart app, confirm data persists.
+- [ ] End-to-end: create session -> join -> vote -> availability -> results.
+
+**If something breaks (rollback):**
+1. In Streamlit Cloud: **Settings** -> **Redeploy** -> pick previous revision if available.
+2. If data looks wrong: restore DB snapshot from your provider (Neon/Supabase/Render).
+3. Re-run verification checklist before reopening.
 
 ## Step 10: Critical Durability Check (New and Important)
 
@@ -376,6 +395,8 @@ You are ready for full manual testing when all are true:
 - Rotate keys if accidentally exposed.
 - Prefer separate tokens/keys for dev vs production.
 
+**CI secrets-scan:** Currently non-blocking (`continue-on-error: true`). Rationale: CI uses fake keys for tests; real keys live only in Streamlit/GitHub secrets. Scan may flag test fixtures—we keep it as a warning, not a gate.
+
 ## Quick Reference (Names Only)
 
 - `OPENAI_API_KEY`
@@ -386,8 +407,8 @@ You are ready for full manual testing when all are true:
 
 ## Quick "Am I Done?" Checklist
 
-- [ ] Streamlit secrets saved (including `DATABASE_URL`).
-- [ ] GitHub Actions secrets saved.
+- [ ] Streamlit secrets saved (including `DATABASE_URL`, `BASE_URL`).
+- [ ] GitHub Actions secrets saved (including `DATABASE_URL`, `BASE_URL` for weekly ingestion).
 - [ ] App redeployed successfully.
 - [ ] Manual Weekly Ingestion workflow run once.
 - [ ] Durability check passed (data survives restart).

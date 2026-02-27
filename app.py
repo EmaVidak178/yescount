@@ -42,24 +42,35 @@ TIME_SLOTS = [("17:00", "19:00"), ("19:00", "21:00"), ("21:00", "23:00")]
 def get_runtime() -> dict[str, Any]:
     settings = load_settings()
     ensure_runtime_dirs(settings)
-    conn = get_connection(settings.sqlite_db_path)
-    init_schema(conn)
     errors = validate_settings(settings)
+    warnings: list[str] = []
+    conn: Any | None = None
+    try:
+        conn = get_connection(settings.sqlite_db_path)
+        init_schema(conn)
+    except Exception as exc:
+        errors.append(f"Database initialization failed: {exc}")
+
     client: OpenAI | None = None
     chroma_collection = None
-    if not errors:
-        client = OpenAI(api_key=settings.openai_api_key, timeout=20.0, max_retries=3)
+    if conn is not None and not errors:
+        try:
+            client = OpenAI(api_key=settings.openai_api_key, timeout=20.0, max_retries=3)
+        except Exception as exc:
+            errors.append(f"OpenAI client initialization failed: {exc}")
         try:
             chroma_client = get_chroma_client(settings.chroma_persist_dir)
             chroma_collection = get_chroma_collection(chroma_client)
         except Exception as exc:
-            errors.append(f"Chroma initialization failed: {exc}")
+            # Chroma is optional for core app usage; expose as degraded dependency instead.
+            warnings.append(f"Chroma initialization degraded: {exc}")
     return {
         "settings": settings,
         "conn": conn,
         "client": client,
         "collection": chroma_collection,
         "errors": errors,
+        "warnings": warnings,
     }
 
 
@@ -185,15 +196,18 @@ def seed_sample_events_if_empty(conn: Any) -> None:
 def maybe_refresh_events() -> dict[str, Any] | None:
     runtime = get_runtime()
     settings = runtime["settings"]
-    if not settings.ingestion_auto_refresh:
+    if not settings.ingestion_auto_refresh or runtime.get("conn") is None:
         return None
-    return run_ingestion(
-        conn=runtime["conn"],
-        settings=settings,
-        collection=runtime.get("collection"),
-        client=runtime.get("client"),
-        force=False,
-    )
+    try:
+        return run_ingestion(
+            conn=runtime["conn"],
+            settings=settings,
+            collection=runtime.get("collection"),
+            client=runtime.get("client"),
+            force=False,
+        )
+    except Exception as exc:
+        return {"status": "failed", "errors": [str(exc)], "events_upserted": 0}
 
 
 def render_landing() -> None:
@@ -507,11 +521,16 @@ def main() -> None:
         for error in runtime["errors"]:
             st.write(f"- {error}")
         return
+    for warning in runtime.get("warnings", []):
+        st.warning(warning)
     status = readiness(runtime["conn"], runtime.get("collection"))
     if not status["ok"]:
         st.error("Readiness check failed.")
         st.json(status)
         return
+    chroma_status = status["dependencies"].get("chroma", "")
+    if chroma_status.startswith("degraded"):
+        st.warning("Search embeddings are degraded. Core planning features remain available.")
     startup_ingestion = maybe_refresh_events()
     if startup_ingestion and startup_ingestion.get("status") in {"failed", "degraded"}:
         st.warning("Automatic startup ingestion is degraded. Showing most recent available data.")

@@ -233,10 +233,20 @@ def _to_dict(row: Any) -> dict[str, Any]:
 def get_connection(db_path: str) -> Any:
     database_url = os.getenv("DATABASE_URL", "").strip()
     if database_url:
-        from psycopg import connect
-        from psycopg.rows import dict_row
+        try:
+            from psycopg import connect
+            from psycopg.rows import dict_row
+        except ImportError as exc:  # pragma: no cover - dependency issue
+            raise RuntimeError(
+                "DATABASE_URL is set but psycopg is not installed. "
+                "Install requirements and redeploy."
+            ) from exc
 
-        return connect(database_url, row_factory=dict_row, autocommit=False)
+        try:
+            return connect(database_url, row_factory=dict_row, autocommit=False)
+        except Exception as exc:
+            # Keep explicit signal that Postgres was selected and failed.
+            raise type(exc)(f"Postgres connection failed for DATABASE_URL: {exc}") from exc
 
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path, check_same_thread=False)
