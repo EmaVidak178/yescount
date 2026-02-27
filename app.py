@@ -320,8 +320,63 @@ def _inject_mosaic_styles() -> None:
             padding: 0.75rem;
             margin-bottom: 0.5rem;
         }
+        .yc-card-media {
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 0.55rem;
+            border: 1px solid rgba(0,0,0,0.08);
+            background: #f5f5f5;
+        }
+        .yc-card-media img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .yc-card-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: white;
+            font-weight: 700;
+            font-size: 0.95rem;
+            letter-spacing: 0.2px;
+            padding: 0.6rem;
+            background: linear-gradient(135deg, #7c3aed 0%, #db2777 55%, #0284c7 100%);
+        }
         </style>
         """,
+        unsafe_allow_html=True,
+    )
+
+
+def _event_image_height(event_id: int) -> int:
+    """Return variable image heights for masonry feel without extreme jumps."""
+    return (170, 210, 240)[event_id % 3]
+
+
+def _render_event_media(img_url: str | None, title: str, event_id: int) -> None:
+    height = _event_image_height(event_id)
+    if img_url:
+        st.markdown(
+            (
+                f'<div class="yc-card-media" style="height:{height}px;">'
+                f'<img src="{html.escape(img_url)}" alt="{html.escape(title)}" />'
+                "</div>"
+            ),
+            unsafe_allow_html=True,
+        )
+        return
+    st.markdown(
+        (
+            f'<div class="yc-card-media" style="height:{height}px;">'
+            f'<div class="yc-card-placeholder">{html.escape(title[:40])}</div>'
+            "</div>"
+        ),
         unsafe_allow_html=True,
     )
 
@@ -381,8 +436,7 @@ def _render_event_card(
         meta_parts.append(f"Price: {price_str}")
     meta_str = " | ".join(meta_parts) if meta_parts else ""
     with st.container(border=True):
-        if img_url:
-            st.image(img_url, use_container_width=True)
+        _render_event_media(img_url, title, eid)
         st.markdown(f"**{idx}. {title}**")
         if summary:
             st.caption(summary)
@@ -745,14 +799,17 @@ def render_swipe() -> None:
     display_titles, display_summaries = _get_event_display_copy(events)
     selected_ids: list[int] = []
     with st.form("vote_form"):
-        for row_start in range(0, len(events), 3):
-            row_events = events[row_start : row_start + 3]
-            cols = st.columns(3)
-            for col_idx, event in enumerate(row_events):
-                with cols[col_idx]:
+        cols = st.columns(3)
+        # Masonry layout: each column stacks independently (dynamic and geometric).
+        buckets: list[list[tuple[int, dict[str, Any]]]] = [[], [], []]
+        for idx, event in enumerate(events):
+            buckets[idx % 3].append((idx + 1, event))
+        for col_idx, bucket in enumerate(buckets):
+            with cols[col_idx]:
+                for card_idx, event in bucket:
                     _render_event_card(
                         event,
-                        idx=row_start + col_idx + 1,
+                        idx=card_idx,
                         voting=voting,
                         selected_ids=selected_ids,
                         display_titles=display_titles,
