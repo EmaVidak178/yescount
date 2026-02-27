@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sqlite3
+from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -21,6 +22,12 @@ from src.ingestion.nyc_open_data import fetch_all_events, normalize_events
 from src.ingestion.source_config import SourceTarget, load_sources
 from src.ingestion.web_scraper import normalize_scraped_events, scrape_site
 from src.rag.embedder import embed_batch
+
+
+def _safe_rollback(conn: Any) -> None:
+    """Reset failed DB transactions without masking original errors."""
+    with suppress(Exception):
+        conn.rollback()
 
 
 def should_refresh(conn: sqlite3.Connection, max_staleness_hours: int) -> bool:
@@ -165,6 +172,7 @@ def run_ingestion(
                     error="" if inserted > 0 else "no events extracted",
                 )
             except requests.RequestException as exc:
+                _safe_rollback(conn)
                 if source.required:
                     required_failed.append(source.name)
                 record_ingestion_source_check(
@@ -178,6 +186,7 @@ def run_ingestion(
                     error=str(exc),
                 )
             except Exception as exc:
+                _safe_rollback(conn)
                 if source.required:
                     required_failed.append(source.name)
                 record_ingestion_source_check(
@@ -217,6 +226,7 @@ def run_ingestion(
         return {"status": "success", "events_upserted": total_upserted}
     except Exception as exc:
         errors.append(str(exc))
+        _safe_rollback(conn)
         finalize_ingestion_run(
             conn,
             run_id=run_id,
@@ -259,6 +269,8 @@ def main() -> None:
         force=args.force,
     )
     print(result)
+    if result.get("status") == "failed":
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
