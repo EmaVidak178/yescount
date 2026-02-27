@@ -11,6 +11,18 @@ from src.db.sqlite_client import get_events
 from src.rag.embedder import embed_text
 
 
+def _is_postgres_conn(conn: Any) -> bool:
+    return bool(conn.__class__.__module__.startswith("psycopg"))
+
+
+def _execute(conn: Any, sql: str, params: list[Any]) -> Any:
+    if _is_postgres_conn(conn):
+        cur = conn.cursor()
+        cur.execute(sql.replace("?", "%s"), params)
+        return cur
+    return conn.execute(sql, params)
+
+
 def _where_clause(
     date_start: str | None, date_end: str | None, price_max: float | None
 ) -> dict[str, Any]:
@@ -54,7 +66,8 @@ def retrieve_events(
         if not event_ids:
             return []
         placeholders = ",".join(["?"] * len(event_ids))
-        rows = conn.execute(
+        rows = _execute(
+            conn,
             f"SELECT * FROM events WHERE id IN ({placeholders})",
             event_ids,
         ).fetchall()

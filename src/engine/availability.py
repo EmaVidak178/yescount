@@ -6,6 +6,18 @@ from typing import Any
 from src.db.sqlite_client import get_availability, replace_availability
 
 
+def _is_postgres_conn(conn: Any) -> bool:
+    return bool(conn.__class__.__module__.startswith("psycopg"))
+
+
+def _execute(conn: Any, sql: str, params: tuple[Any, ...]) -> Any:
+    if _is_postgres_conn(conn):
+        cur = conn.cursor()
+        cur.execute(sql.replace("?", "%s"), params)
+        return cur
+    return conn.execute(sql, params)
+
+
 def set_availability(
     conn: Any,
     session_id: str,
@@ -16,7 +28,8 @@ def set_availability(
 
 
 def get_group_availability(conn: Any, session_id: str) -> dict[str, Any]:
-    participants = conn.execute(
+    participants = _execute(
+        conn,
         "SELECT id, name FROM participants WHERE session_id = ?",
         (session_id,),
     ).fetchall()
