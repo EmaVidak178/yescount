@@ -576,7 +576,6 @@ def render_welcome() -> None:
 
 
 def render_swipe() -> None:
-    _inject_swipe_styles()
     runtime = get_runtime()
     conn = runtime["conn"]
     if not st.session_state.session_id or st.session_state.participant_id is None:
@@ -633,25 +632,16 @@ def render_swipe() -> None:
             if price_str:
                 meta_parts.append(f"Price: {price_str}")
             meta_str = " | ".join(meta_parts) if meta_parts else ""
-            img_html = ""
-            if img_url:
-                img_html = f'<div class="yc-swipe-card-img"><img src="{html.escape(img_url)}" alt="Event" /></div>'
-            title_esc = html.escape(_event_title(event))
-            desc_esc = html.escape(desc_snippet)
-            meta_esc = html.escape(meta_str)
-            card_html = f"""
-            <div class="yc-swipe-card">
-                {img_html}
-                <div class="yc-swipe-card-body">
-                    <h4>{idx}. {title_esc}</h4>
-                    {f'<p class="yc-swipe-meta">{desc_esc}</p>' if desc_snippet else ''}
-                    {f'<p class="yc-swipe-meta">{meta_esc}</p>' if meta_str else ''}
-                </div>
-            </div>
-            """
-            st.markdown(card_html, unsafe_allow_html=True)
-            if st.checkbox("Interested", key=f"vote_event_{event['id']}"):
-                selected_ids.append(int(event["id"]))
+            with st.container(border=True):
+                if img_url:
+                    st.image(img_url, use_container_width=True)
+                st.markdown(f"**{idx}. {_event_title(event)}**")
+                if desc_snippet:
+                    st.caption(desc_snippet)
+                if meta_str:
+                    st.write(meta_str)
+                if st.checkbox("Interested", key=f"vote_event_{event['id']}"):
+                    selected_ids.append(int(event["id"]))
         submitted = st.form_submit_button("Save votes and continue")
 
     if submitted:
