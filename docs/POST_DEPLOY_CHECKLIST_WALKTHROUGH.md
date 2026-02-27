@@ -4,6 +4,18 @@ A step-by-step guide to verify your YesCount deployment works end-to-end. Use th
 
 ---
 
+## What to do tomorrow (resume here)
+
+Do these in order:
+
+1. **Run manual Weekly Ingestion** (Step 2 below) — Yes, run it first. Fresh data plus the new curation filters (no news, closures, guides) will improve event quality.
+2. **Wait for ingestion to finish** (5–15 min). Then restart the Streamlit app so it picks up the new events.
+3. **Hard refresh the app** (Ctrl+Shift+R) to load the latest deployed code.
+4. **Verify new features** — Swipe: mosaic 3/row, colorful boxes, LLM titles. Results: no errors. Calendar: full month, clickable dates.
+5. **Continue checklist** — Steps 3–6 below (durability, full flow, invite link, logs).
+
+---
+
 ## Step 1: Check readiness/liveness output
 
 **What this means:** Make sure the app starts correctly and can talk to the database.
