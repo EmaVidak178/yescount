@@ -41,8 +41,7 @@ def generate_event_titles_batch(
         lines.append(f"ID{eid}: {title}\n{desc}")
     prompt = (
         "For each event below, write ONE catchy short title (max 50 chars). "
-        "Output format: one line per event, 'ID<id>: <title>'\n\n"
-        + "\n---\n".join(lines)
+        "Output format: one line per event, 'ID<id>: <title>'\n\n" + "\n---\n".join(lines)
     )
     try:
         response = client.responses.create(model="gpt-4.1-mini", input=prompt)

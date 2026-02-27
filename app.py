@@ -267,7 +267,7 @@ def _event_title(event: dict[str, Any], max_len: int = 60) -> str:
     if len(raw) <= max_len:
         return raw
     cut = raw[: max_len + 1].rfind(" ")
-    return (raw[: cut] + "...") if cut > max_len // 2 else (raw[:max_len] + "...")
+    return (raw[:cut] + "...") if cut > max_len // 2 else (raw[:max_len] + "...")
 
 
 def _inject_mosaic_styles() -> None:
@@ -321,7 +321,7 @@ def _render_event_card(
     desc = str(event.get("description", "")).strip()
     if len(desc) > 180:
         cut = desc[:181].rfind(" ")
-        desc_snippet = (desc[: cut] + "...") if cut > 90 else (desc[:180] + "...")
+        desc_snippet = (desc[:cut] + "...") if cut > 90 else (desc[:180] + "...")
     else:
         desc_snippet = desc
     meta_parts: list[str] = []
@@ -783,8 +783,16 @@ def _render_calendar_month_grid(
                     continue
                 day_str = day.isoformat()
                 current = state.get(day_str, "no_response")
-                cycle = {"no_response": "available", "available": "unavailable", "unavailable": "no_response"}
-                colors = {"no_response": "#f0f0f0", "available": "#22c55e", "unavailable": "#ef4444"}
+                cycle = {
+                    "no_response": "available",
+                    "available": "unavailable",
+                    "unavailable": "no_response",
+                }
+                colors = {
+                    "no_response": "#f0f0f0",
+                    "available": "#22c55e",
+                    "unavailable": "#ef4444",
+                }
                 btn_label = day.strftime("%d")
                 if st.button(
                     btn_label,
@@ -825,7 +833,8 @@ def render_calendar() -> None:
     # Load existing availability
     slots = get_availability(conn, st.session_state.session_id)
     existing = {
-        row["date"] for row in slots
+        row["date"]
+        for row in slots
         if int(row.get("participant_id", 0)) == st.session_state.participant_id
     }
     selected = _render_calendar_month_grid(date_window, existing)

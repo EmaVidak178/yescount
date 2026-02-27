@@ -14,11 +14,28 @@ PRIORITY_KEYWORDS = frozenset(
 # Content that suggests NOT an event (news, guides, closures, lists)
 NON_EVENT_KEYWORDS = frozenset(
     {
-        "cheapest", "closure", "closed", "closing", "permanently closed",
-        "news", "article", "report", "roundup", "guide to",
-        "best bakery", "best restaurant", "best bars", "best things",
-        "permanently shut", "shut down", "going out of business",
-        "list of", "top 10", "top 15", "top 20", "things to know",
+        "cheapest",
+        "closure",
+        "closed",
+        "closing",
+        "permanently closed",
+        "news",
+        "article",
+        "report",
+        "roundup",
+        "guide to",
+        "best bakery",
+        "best restaurant",
+        "best bars",
+        "best things",
+        "permanently shut",
+        "shut down",
+        "going out of business",
+        "list of",
+        "top 10",
+        "top 15",
+        "top 20",
+        "things to know",
     }
 )
 DEFAULT_TOP_N = 30
