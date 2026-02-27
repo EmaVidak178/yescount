@@ -4,6 +4,11 @@
 
 Move from MVP deployment (ephemeral local disk on Streamlit Cloud) to reliable user-facing deployment with durable storage, enforced quality gates, and rollback safety.
 
+## Canonical Strategy Reference
+
+- Current operating model is hybrid (Track A ingestion + durable Postgres SQL + local Chroma vectors).
+- See `docs/HYBRID_STRATEGY_HISTORY_AND_GUIDE.md` for the latest strategy and rationale.
+
 ## 1) Reliability Baseline (must pass before release)
 
 1. CI gates are green on every PR:
@@ -87,6 +92,7 @@ Move from MVP deployment (ephemeral local disk on Streamlit Cloud) to reliable u
 The release is user-facing ready only when:
 
 - all CI gates are enforced and passing,
-- durable persistence is in place for sessions and embeddings,
+- durable persistence is in place for session/relational data (Postgres),
+- vector retrieval is either durable or explicitly accepted as temporary local risk,
 - rollback has been tested successfully,
 - staged beta traffic has no critical defects.

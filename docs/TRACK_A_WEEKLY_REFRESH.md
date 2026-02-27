@@ -1,5 +1,9 @@
 # Track A Runbook: Weekly Friday Refresh + Required Sources
 
+> Note: For current overall architecture and decision context, use
+> `docs/HYBRID_STRATEGY_HISTORY_AND_GUIDE.md` as the canonical source.
+> This file remains a focused Track A operational runbook.
+
 ## Goal
 
 - Auto-refresh events weekly on Friday.

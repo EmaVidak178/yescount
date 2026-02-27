@@ -63,9 +63,13 @@ Owner: implementation agent
 
 ## 8) MVP Durability Stance
 
-- Streamlit Cloud ephemeral storage is accepted for MVP.
-- Production-readiness requires migration to durable SQL and vector stores.
-- Migration path and rollback checks are release-gated.
+- Current production stance is hybrid:
+  - durable SQL in Postgres when `DATABASE_URL` is set,
+  - SQLite fallback when `DATABASE_URL` is absent,
+  - local Chroma vectors as a temporary accepted risk.
+- Production readiness currently requires durable SQL and explicit acceptance/monitoring of temporary local vector risk.
+- Full durable vector migration remains a next-phase milestone.
+- Canonical reference: `docs/HYBRID_STRATEGY_HISTORY_AND_GUIDE.md`.
 
 ## 9) Voting Window and Monthly Scope
 

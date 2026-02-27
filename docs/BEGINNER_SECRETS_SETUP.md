@@ -31,6 +31,10 @@ For this project, the important secrets are:
 - `BASE_URL` (not strictly private, but required runtime config in Streamlit)
 - `DATABASE_URL` (recommended now for durable PostgreSQL)
 
+Important exact-name warning:
+- Use exact names only. `OPEN_AI_KEY` is wrong (must be `OPENAI_API_KEY`).
+- `NYC_OPEN_DATASET_ID` is wrong (must be `NYC_OPEN_DATA_DATASET_ID`).
+
 ## Before You Start
 
 You need:

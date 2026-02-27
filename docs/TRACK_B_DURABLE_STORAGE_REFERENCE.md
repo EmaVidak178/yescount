@@ -1,5 +1,9 @@
 # Track B Reference: Durable SQL Now (In Progress)
 
+> Note: For current overall architecture and decision context, use
+> `docs/HYBRID_STRATEGY_HISTORY_AND_GUIDE.md` as the canonical source.
+> This file remains a Track B deep reference/history document.
+
 Status: Modified Track B in progress
 Owner: YesCount team
 Last updated: 2026-02-26
