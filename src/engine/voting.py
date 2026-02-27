@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from src.db.sqlite_client import get_vote_tallies, upsert_vote
+from src.db.sqlite_client import (
+    get_interested_participants_by_event,
+    get_vote_tallies,
+    row_to_dict,
+    upsert_vote,
+)
 
 
 def _is_postgres_conn(conn: Any) -> bool:
@@ -31,6 +36,13 @@ def get_session_vote_tallies(conn: Any, session_id: str) -> dict[int, int]:
     return get_vote_tallies(conn, session_id)
 
 
+def get_session_interested_participants_by_event(
+    conn: Any, session_id: str
+) -> dict[int, list[str]]:
+    """Return mapping event_id -> [participant names] for interested votes in a session."""
+    return get_interested_participants_by_event(conn, session_id)
+
+
 def get_participant_votes(conn: Any, session_id: str, participant_id: int) -> list[dict[str, Any]]:
     rows = _execute(
         conn,
@@ -41,4 +53,4 @@ def get_participant_votes(conn: Any, session_id: str, participant_id: int) -> li
         """,
         (session_id, participant_id),
     ).fetchall()
-    return [dict(row) for row in rows]
+    return [row_to_dict(row) for row in rows]

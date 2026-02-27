@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any, cast
+
 from src.config.settings import Settings, validate_settings
 
 
@@ -20,7 +22,7 @@ def _valid_settings(**overrides: object) -> Settings:
         "ingestion_required_sources_strict": True,
     }
     defaults.update(overrides)
-    return Settings(**defaults)
+    return Settings(**cast(dict[str, Any], defaults))
 
 
 def test_validate_settings_rejects_empty_scraper_config_path():

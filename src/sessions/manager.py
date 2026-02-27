@@ -122,7 +122,7 @@ def get_session_preview(conn: Any, session_id: str) -> dict[str, Any] | None:
         FROM votes v
         JOIN events e ON v.event_id = e.id
         WHERE v.session_id = ? AND v.interested = 1
-        GROUP BY v.event_id
+        GROUP BY v.event_id, e.id, e.title
         ORDER BY vote_count DESC
         LIMIT 3
         """,

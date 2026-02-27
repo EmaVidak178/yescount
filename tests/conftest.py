@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -10,7 +11,7 @@ from src.db.sqlite_client import get_connection, init_schema
 
 
 @pytest.fixture
-def sqlite_db(tmp_path: Path) -> sqlite3.Connection:
+def sqlite_db(tmp_path: Path) -> Generator[sqlite3.Connection, None, None]:
     os.environ.pop("DATABASE_URL", None)
     db_path = str(tmp_path / "test.db")
     conn = get_connection(db_path)

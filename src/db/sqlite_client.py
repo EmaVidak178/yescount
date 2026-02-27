@@ -230,6 +230,11 @@ def _to_dict(row: Any) -> dict[str, Any]:
     return row if isinstance(row, dict) else dict(row)
 
 
+def row_to_dict(row: Any) -> dict[str, Any]:
+    """Convert DB row (sqlite3.Row or psycopg dict_row) to dict. Use for cross-DB consistency."""
+    return _to_dict(row)
+
+
 def get_connection(db_path: str) -> Any:
     database_url = os.getenv("DATABASE_URL", "").strip()
     if database_url:
@@ -457,6 +462,30 @@ def get_vote_tallies(conn: Any, session_id: str) -> dict[int, int]:
         [session_id],
     ).fetchall()
     return {int(_to_dict(row)["event_id"]): int(_to_dict(row)["votes_yes"]) for row in rows}
+
+
+def get_interested_participants_by_event(conn: Any, session_id: str) -> dict[int, list[str]]:
+    """Return mapping event_id -> [participant names] for interested votes in a session."""
+    rows = _execute(
+        conn,
+        """
+        SELECT v.event_id, p.name
+        FROM votes v
+        JOIN participants p ON v.participant_id = p.id AND v.session_id = p.session_id
+        WHERE v.session_id = ? AND v.interested = 1
+        ORDER BY v.event_id, p.name
+        """,
+        [session_id],
+    ).fetchall()
+    result: dict[int, list[str]] = {}
+    for row in rows:
+        d = _to_dict(row)
+        eid = int(d["event_id"])
+        name = str(d["name"])
+        if eid not in result:
+            result[eid] = []
+        result[eid].append(name)
+    return result
 
 
 def replace_availability(

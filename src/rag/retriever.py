@@ -7,7 +7,7 @@ from chromadb.api.models.Collection import Collection
 from openai import OpenAI
 
 from src.db.chroma_client import query_events
-from src.db.sqlite_client import get_events
+from src.db.sqlite_client import get_events, row_to_dict
 from src.rag.embedder import embed_text
 
 
@@ -71,7 +71,7 @@ def retrieve_events(
             f"SELECT * FROM events WHERE id IN ({placeholders})",
             event_ids,
         ).fetchall()
-        by_id = {row["id"]: dict(row) for row in rows}
+        by_id = {row["id"]: row_to_dict(row) for row in rows}
         ordered = [by_id[event_id] for event_id in event_ids if event_id in by_id]
         if vibe_tags:
             wanted = {tag.lower() for tag in vibe_tags}
