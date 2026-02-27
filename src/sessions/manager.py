@@ -16,6 +16,27 @@ from src.db.sqlite_client import (
 NAME_PATTERN = re.compile(r"^[A-Za-z0-9 '\-]{1,50}$")
 
 
+def _is_postgres_conn(conn: Any) -> bool:
+    return bool(conn.__class__.__module__.startswith("psycopg"))
+
+
+def _execute(conn: Any, sql: str, params: tuple[Any, ...]) -> Any:
+    if _is_postgres_conn(conn):
+        cur = conn.cursor()
+        cur.execute(sql.replace("?", "%s"), params)
+        return cur
+    return conn.execute(sql, params)
+
+
+def _parse_expires_at(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    if isinstance(value, str):
+        parsed = datetime.fromisoformat(value)
+        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+    return None
+
+
 def validate_participant_name(name: str) -> str | None:
     cleaned = " ".join(name.strip().split())
     if not cleaned:
@@ -33,7 +54,9 @@ def is_session_valid(conn: Any, session_id: str) -> bool:
         return False
     if session["status"] == "archived":
         return False
-    expires_at = datetime.fromisoformat(session["expires_at"])
+    expires_at = _parse_expires_at(session.get("expires_at"))
+    if expires_at is None:
+        return False
     return datetime.now(UTC) < expires_at
 
 
@@ -92,7 +115,8 @@ def get_session_preview(conn: Any, session_id: str) -> dict[str, Any] | None:
     if not session:
         return None
     participants = get_participants(conn, session_id)
-    top_events = conn.execute(
+    top_events = _execute(
+        conn,
         """
         SELECT e.title, COUNT(*) as vote_count
         FROM votes v
