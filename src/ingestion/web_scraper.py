@@ -135,7 +135,10 @@ def _extract_image_url(node: Any, base_url: str) -> str | None:
     img = node.select_one("img")
     if img is None:
         return None
-    src = img.get("src") or img.get("data-src") or img.get("data-lazy-src")
+    src_raw = img.get("src") or img.get("data-src") or img.get("data-lazy-src")
+    if not isinstance(src_raw, str):
+        return None
+    src = src_raw.strip()
     if not src:
         return None
     if src.startswith("http://") or src.startswith("https://"):

@@ -78,8 +78,7 @@ def generate_event_summaries_batch(
     prompt = (
         "For each event below, write one concise and useful summary in 1-2 sentences. "
         "Focus on what the event is and why someone would go. "
-        "Output format: one line per event as 'ID<id>: <summary>'.\n\n"
-        + "\n---\n".join(lines)
+        "Output format: one line per event as 'ID<id>: <summary>'.\n\n" + "\n---\n".join(lines)
     )
     try:
         response = client.responses.create(model="gpt-4.1-mini", input=prompt)
