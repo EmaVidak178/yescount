@@ -61,19 +61,67 @@ def should_refresh(conn: sqlite3.Connection, max_staleness_hours: int) -> bool:
     return datetime.now(UTC) - last > timedelta(hours=max_staleness_hours)
 
 
+def _is_valid_event_datetime(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, datetime):
+        return True
+    if not isinstance(value, str):
+        return False
+    text = value.strip()
+    if not text:
+        return False
+    try:
+        datetime.fromisoformat(text.replace("Z", "+00:00"))
+        return True
+    except ValueError:
+        try:
+            datetime.strptime(text[:10], "%Y-%m-%d")
+            return True
+        except ValueError:
+            return False
+
+
 def _upsert_and_embed(
     conn: sqlite3.Connection,
     collection: Any | None,
     client: OpenAI | None,
     events: list[dict[str, Any]],
-) -> int:
+) -> tuple[int, int]:
     if not events:
-        return 0
+        return 0, 0
     event_ids: list[int] = []
     docs: list[str] = []
+    embedded_events: list[dict[str, Any]] = []
+    skipped_invalid_date = 0
     for event in events:
-        event_id = upsert_event(conn, event)
+        if not _is_valid_event_datetime(event.get("date_start")):
+            skipped_invalid_date += 1
+            print(
+                (
+                    "[INGESTION] skip_event reason=invalid_date_start "
+                    f"source={event.get('source')} source_id={event.get('source_id')} "
+                    f"title={str(event.get('title', ''))[:80]}"
+                ),
+                file=sys.stderr,
+            )
+            continue
+        try:
+            event_id = upsert_event(conn, event)
+        except Exception as exc:
+            skipped_invalid_date += 1
+            _safe_rollback(conn)
+            print(
+                (
+                    "[INGESTION] skip_event reason=upsert_error "
+                    f"source={event.get('source')} source_id={event.get('source_id')} "
+                    f"error={exc}"
+                ),
+                file=sys.stderr,
+            )
+            continue
         event_ids.append(event_id)
+        embedded_events.append(event)
         docs.append(
             " | ".join(
                 [
@@ -85,14 +133,14 @@ def _upsert_and_embed(
         )
 
     if collection is None or client is None:
-        return len(event_ids)
+        return len(event_ids), skipped_invalid_date
 
     vectors = embed_batch(client, docs)
     for idx, event_id in enumerate(event_ids):
         vector = vectors[idx] if idx < len(vectors) else []
         if not vector:
             continue
-        event = events[idx]
+        event = embedded_events[idx]
         upsert_event_embedding(
             collection=collection,
             event_id=event_id,
@@ -104,7 +152,7 @@ def _upsert_and_embed(
                 "source": event.get("source"),
             },
         )
-    return len(event_ids)
+    return len(event_ids), skipped_invalid_date
 
 
 def run_ingestion(
@@ -130,18 +178,21 @@ def run_ingestion(
                 app_token=settings.nyc_open_data_app_token,
             )
             normalized = normalize_events(raw)
-            inserted = _upsert_and_embed(conn, collection, client, normalized)
+            inserted, skipped_invalid = _upsert_and_embed(conn, collection, client, normalized)
             total_upserted += inserted
+            nyc_status = "success" if inserted > 0 else "partial"
+            nyc_error = f"skipped_invalid_date={skipped_invalid}" if skipped_invalid else ""
             record_ingestion_source_check(
                 conn,
                 run_id=run_id,
                 source_name="nyc_open_data",
                 source_url="https://data.cityofnewyork.us/",
                 required=True,
-                status="success",
+                status=nyc_status,
                 events_found=inserted,
+                error=nyc_error,
             )
-            _log_source_status("nyc_open_data", "success", inserted)
+            _log_source_status("nyc_open_data", nyc_status, inserted, nyc_error)
         else:
             record_ingestion_source_check(
                 conn,
@@ -180,9 +231,17 @@ def run_ingestion(
             try:
                 raw_scraped = scrape_site(source.url, source_name=source.name)
                 normalized_scraped = normalize_scraped_events(raw_scraped)
-                inserted = _upsert_and_embed(conn, collection, client, normalized_scraped)
+                inserted, skipped_invalid = _upsert_and_embed(
+                    conn, collection, client, normalized_scraped
+                )
                 total_upserted += inserted
                 status = "success" if inserted > 0 else "partial"
+                source_error = ""
+                if inserted == 0:
+                    source_error = "no events extracted"
+                if skipped_invalid:
+                    extra = f"skipped_invalid_date={skipped_invalid}"
+                    source_error = f"{source_error}; {extra}".strip("; ").strip()
                 record_ingestion_source_check(
                     conn,
                     run_id=run_id,
@@ -191,13 +250,13 @@ def run_ingestion(
                     required=source.required,
                     status=status,
                     events_found=inserted,
-                    error="" if inserted > 0 else "no events extracted",
+                    error=source_error,
                 )
                 _log_source_status(
                     source.name,
                     status,
                     inserted,
-                    "" if inserted > 0 else "no events extracted",
+                    source_error,
                 )
             except requests.RequestException as exc:
                 _safe_rollback(conn)

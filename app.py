@@ -134,7 +134,7 @@ def _event_image_url(event: dict[str, Any]) -> str | None:
     for key in ("image_url", "image", "imageUrl", "thumbnail_url", "thumbnail"):
         val = raw.get(key)
         if val and isinstance(val, str) and val.startswith(("http://", "https://")):
-            return val
+            return str(val)
     return None
 
 
@@ -296,6 +296,97 @@ def _voting_context() -> dict[str, Any]:
         "deadline_label": window.deadline_label,
         "is_open": window.is_open,
     }
+
+
+def _execute_sql(conn: Any, sql: str, params: tuple[Any, ...]) -> Any:
+    if bool(conn.__class__.__module__.startswith("psycopg")):
+        cur = conn.cursor()
+        cur.execute(sql.replace("?", "%s"), params)
+        return cur
+    return conn.execute(sql, params)
+
+
+def _session_date_bounds(conn: Any, session_id: str) -> tuple[date, date]:
+    """Return session date bounds; fallback to rolling 30 days."""
+    preview = get_session_preview(conn, session_id)
+    if preview:
+        raw = preview["session"].get("admin_preferences_json")
+        payload: dict[str, Any]
+        if isinstance(raw, str):
+            try:
+                payload = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                payload = {}
+        elif isinstance(raw, dict):
+            payload = raw
+        else:
+            payload = {}
+        prefs = load_preferences(payload)
+        if prefs.date_range_start and prefs.date_range_end:
+            return date.fromisoformat(prefs.date_range_start), date.fromisoformat(
+                prefs.date_range_end
+            )
+    start = date.today()
+    return start, start + timedelta(days=30)
+
+
+def _event_overlaps_range(event: dict[str, Any], start: date, end: date) -> bool:
+    """True if event date intersects session date window; unknown dates are kept."""
+    start_dt = _parse_event_datetime(event.get("date_start"))
+    end_dt = _parse_event_datetime(event.get("date_end"))
+    if start_dt is None and end_dt is None:
+        return True
+    event_start_dt = start_dt if start_dt is not None else end_dt
+    event_end_dt = end_dt if end_dt is not None else start_dt
+    if event_start_dt is None or event_end_dt is None:
+        return True
+    event_start = event_start_dt.date()
+    event_end = event_end_dt.date()
+    return not (event_end < start or event_start > end)
+
+
+def _organizer_voting_progress(conn: Any, session_id: str) -> tuple[int, int, int]:
+    """Return (participants_joined, participants_voted, availability_submitted)."""
+
+    def _count(sql: str) -> int:
+        row = _execute_sql(conn, sql, (session_id,)).fetchone()
+        if row is None:
+            return 0
+        if isinstance(row, dict):
+            return int(row.get("cnt", 0))
+        try:
+            return int(row["cnt"])  # sqlite.Row / dict-like rows
+        except (TypeError, KeyError, IndexError):
+            return int(row[0])  # tuple-style rows
+
+    joined = int(_count("SELECT COUNT(*) AS cnt FROM participants WHERE session_id = ?"))
+    voted = int(
+        _count(
+            """
+            SELECT COUNT(DISTINCT participant_id) AS cnt
+            FROM votes
+            WHERE session_id = ?
+            """
+        )
+    )
+    availability = int(
+        _count(
+            """
+            SELECT COUNT(DISTINCT participant_id) AS cnt
+            FROM availability_slots
+            WHERE session_id = ?
+            """
+        )
+    )
+    return joined, voted, availability
+
+
+def _is_connector(conn: Any, session_id: str, participant_name: str) -> bool:
+    preview = get_session_preview(conn, session_id)
+    if not preview:
+        return False
+    created_by = str(preview["session"].get("created_by") or "").strip().lower()
+    return created_by == participant_name.strip().lower()
 
 
 def _event_title(event: dict[str, Any], max_len: int = 60) -> str:
@@ -504,7 +595,7 @@ def cached_retrieve(
 
 
 def init_state() -> None:
-    defaults = {
+    defaults: dict[str, Any] = {
         "current_view": "landing",
         "session_id": None,
         "session_name": "",
@@ -766,30 +857,32 @@ def render_swipe() -> None:
         st.warning("Event refresh is degraded. Showing most recent available data.")
     if not get_events(conn):
         seed_sample_events_if_empty(conn)
-    voting = _voting_context()
     st.subheader("Select Your Favorites")
-    st.info(
-        f"**Monthly voting:** {voting['month_label']} | **Deadline:** {voting['deadline_label']}"
-    )
+    st.info("What do you want to do this month?")
     st.caption("Websites-only curation enabled.")
-    if not voting["is_open"]:
-        st.info("Voting is closed right now. Please come back during the monthly voting window.")
-        if st.button("Go to availability"):
-            st.session_state.current_view = "calendar"
-            st.rerun()
-        return
 
-    events = curate_voting_events(
+    if _is_connector(conn, st.session_state.session_id, st.session_state.participant_name):
+        joined, voted, availability = _organizer_voting_progress(conn, st.session_state.session_id)
+        st.info(
+            "Organizer progress: "
+            f"{voted}/{joined} participants voted, "
+            f"{availability}/{joined} submitted availability. "
+            "When ready, use Results -> Lock session to finalize voting."
+        )
+
+    candidate_events = curate_voting_events(
         get_events(conn),
-        target_year=voting["target_year"],
-        target_month=voting["target_month"],
         websites_only=True,
-        top_n=30,
+        top_n=200,
     )
+    range_start, range_end = _session_date_bounds(conn, st.session_state.session_id)
+    events = [ev for ev in candidate_events if _event_overlaps_range(ev, range_start, range_end)][
+        :30
+    ]
     st.session_state.event_stack = events
     if not events:
         st.info(
-            "No curated events are available for this voting month yet. "
+            "No curated events are available for your session date range yet. "
             "Try running ingestion again."
         )
         return
@@ -810,7 +903,7 @@ def render_swipe() -> None:
                     _render_event_card(
                         event,
                         idx=card_idx,
-                        voting=voting,
+                        voting={"month_label": range_start.strftime("%B %Y")},
                         selected_ids=selected_ids,
                         display_titles=display_titles,
                         display_summaries=display_summaries,

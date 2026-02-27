@@ -3,6 +3,7 @@ from __future__ import annotations
 from src.ingestion.normalizer import (
     extract_vibe_tags,
     normalize_nyc_open_data,
+    normalize_scraped,
     parse_date,
     parse_price,
 )
@@ -33,3 +34,14 @@ def test_normalize_nyc_event():
     normalized = normalize_nyc_open_data(raw)
     assert normalized["title"] == "Sample"
     assert normalized["source"] == "nyc_open_data"
+
+
+def test_normalize_scraped_uses_none_for_missing_date():
+    raw = {
+        "title": "Untimed Event",
+        "description": "No date provided",
+        "date_start": "",
+        "source_id": "missing-date",
+    }
+    normalized = normalize_scraped(raw)
+    assert normalized["date_start"] is None
