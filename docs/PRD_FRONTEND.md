@@ -15,10 +15,13 @@ This PRD contains aspirational layout detail; the following shipped behavior is 
 - Landing includes hero media (`assets/yescount-hero.png`) with fallback branding and create/join CTA cards.
 - Session date range is hard-capped to 31 days from selected start date (UI + server guard).
 - Voting screen uses curated websites-only cards (max 30), with monthly target/deadline messaging.
+- Event cards use a 3-column masonry presentation with image-first cards and fallback placeholders when media is unavailable.
+- Card copy uses LLM-generated short title and summary when available.
 - Event cards show compact schedule labels:
-  - specific date/time for single-date events,
+  - specific date for single-date events,
   - concise date ranges when start/end are present,
-  - `Multiple dates in <month>` for recurring-style listings.
+  - `Multiple dates` for recurring or unclear schedules.
+- Vote control copy on cards: `Yes! Count me in!`.
 - Availability UI is simplified to a single evening slot per day with tri-state controls (`No response`, `Available`, `Unavailable`).
 - Results show interested participant names per event and best overlap dates/times.
 

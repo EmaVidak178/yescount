@@ -30,6 +30,7 @@ Move from MVP deployment (ephemeral local disk on Streamlit Cloud) to reliable u
 - **Chroma**: Local (`data/chroma/`) for vector embeddings; remains on app instance disk.
 - **Sources**: 6 website sources in `config/scraper_sites.yaml` (secretnyc, timeout_newyork, hiddennyc, untappedcities, anisah_immersive, fever_newyork).
 - Ingestion runs out-of-band via weekly Friday GitHub Actions workflow.
+- UI currently uses a masonry-style 3-column event card presentation with image fallback placeholders.
 
 ### Future improvements
 
@@ -82,8 +83,11 @@ Move from MVP deployment (ephemeral local disk on Streamlit Cloud) to reliable u
 
 - [ ] Check readiness/liveness output.
 - [ ] Run manual Weekly Ingestion workflow in GitHub Actions; confirm success.
+- [ ] If scraper/date extraction logic changed, run ingestion once after deploy before UI validation.
 - [ ] Durability: create session, add vote, restart app; confirm data persists.
 - [ ] End-to-end: create -> join -> vote -> availability -> recommendations.
+- [ ] Verify card content quality: no generic roundup listicle titles as standalone events, date labels are event-specific or `Multiple dates`.
+- [ ] Verify event card UX: full-width top banner, larger landing hero, masonry cards, image placeholders for missing media, checkbox text `Yes! Count me in!`.
 - [ ] Verify session links and invite text in real browser.
 - [ ] Inspect logs for errors during first user sessions.
 
@@ -96,3 +100,7 @@ The release is user-facing ready only when:
 - vector retrieval is either durable or explicitly accepted as temporary local risk,
 - rollback has been tested successfully,
 - staged beta traffic has no critical defects.
+
+## 7) Final Signoff
+
+- Use `docs/AGENT_D_FINAL_SIGNOFF_CHECKLIST.md` for final go/no-go evaluation after manual verification.

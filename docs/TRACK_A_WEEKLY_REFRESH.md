@@ -23,6 +23,13 @@
 - Weekly scheduled workflow:
   - `.github/workflows/weekly_ingestion.yml`
 - Environment variables updated in `.env.example`
+- Transaction resilience in ingestion finalization:
+  - rollback guard before final run-status updates after failures
+  - non-zero CLI exit when ingestion status is `failed`
+- Scraper quality upgrades:
+  - better date extraction (`single` / `range` / `multiple` / `unclear`)
+  - fallback card date label `Multiple dates` when event date is ambiguous
+  - listicle-aware extraction path for SecretNYC pages
 
 ## Required Environment Variables
 

@@ -11,7 +11,7 @@ Do these in order:
 1. **Run manual Weekly Ingestion** (Step 2 below) — Yes, run it first. Fresh data plus the new curation filters (no news, closures, guides) will improve event quality.
 2. **Wait for ingestion to finish** (5–15 min). Then restart the Streamlit app so it picks up the new events.
 3. **Hard refresh the app** (Ctrl+Shift+R) to load the latest deployed code.
-4. **Verify new features** — Swipe: mosaic 3/row, colorful boxes, LLM titles. Results: no errors. Calendar: full month, clickable dates.
+4. **Verify new features** — Swipe: masonry 3-column cards, colorful image fallback placeholders, LLM titles and summaries, checkbox text "Yes! Count me in!". Results: no errors. Calendar: full month, clickable dates.
 5. **Continue checklist** — Steps 3–6 below (durability, full flow, invite link, logs).
 
 ---
@@ -48,6 +48,7 @@ Do these in order:
 7. Check the status:
    - **Green checkmark** = success.
    - **Red X** = failure; click the run to see the logs and error message.
+8. If you just changed scraper/date extraction logic, always run this manual ingestion before validating card output.
 
 **Pass:** The workflow run completes with a green checkmark.
 
@@ -65,7 +66,7 @@ Do these in order:
    - Click **Create plan**.
 2. **Add a vote**
    - You should land on the Swipe view.
-   - Check "Interested" on at least one event.
+   - Check "Yes! Count me in!" on at least one event.
    - Click **Save votes and continue**.
 3. **Restart the app**
    - In Streamlit Cloud: go to your app dashboard → **Settings** → **Restart app** (or redeploy).
@@ -87,9 +88,10 @@ Do these in order:
 
 1. **Create** — Create a new plan (or reuse one). Note the session link or ID.
 2. **Join** — Open the session link in a new tab or incognito window (or use another device). Enter your name and join.
-3. **Vote** — Mark "Interested" on several events. Click **Save votes and continue**.
+3. **Vote** — Mark "Yes! Count me in!" on several events. Click **Save votes and continue**.
 4. **Availability** — On the calendar, select "Available" for some dates. Click **Submit availability**.
 5. **Recommendations** — Click **See results**. You should see recommendations and "Best dates to gather your crew".
+6. **Card quality check** — confirm event cards do not show generic roundup titles (e.g. "Top 16 March Events"), and date label is either event-specific or **Multiple dates**.
 
 **Pass:** You can complete the full flow without errors.
 

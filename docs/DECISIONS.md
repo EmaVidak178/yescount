@@ -82,14 +82,16 @@ Owner: implementation agent
 
 - Voting cards are websites-only (`source == "scraped"`), capped at 30 cards.
 - Event quality ranking uses text richness and priority keyword scoring.
+- Generic roundup/listicle records (for example "Top X things to do") should not appear as standalone events when itemized extraction is available.
 - Event schedule display on cards follows:
-  - single-date events: specific date/time,
+  - single-date events: specific event date,
   - bounded date ranges: short range label (for example, `Aug 19 - Aug 21`),
-  - recurring/multi-date patterns: `Multiple dates in <month>`.
+  - recurring/multi-date/unclear patterns: `Multiple dates`.
 
 ## 11) Landing and Session Date Boundaries
 
 - Landing screen includes a hero image (`assets/yescount-hero.png`) with fallback branding if the image is missing.
+- A full-width top banner (`assets/yescount_banner.png`) is rendered on all pages.
 - Session creation date range is hard-capped to 31 days from selected start date:
   - UI cap via `st.date_input(max_value=...)`,
   - server-side guard before session creation.
@@ -101,3 +103,15 @@ Owner: implementation agent
   - `No response`,
   - `Available`,
   - `Unavailable`.
+
+## 13) Event Card Presentation
+
+- Event cards use a 3-column masonry layout (dynamic card heights).
+- If event media is missing, a colorful branded placeholder is shown to preserve visual continuity.
+- Card vote checkbox copy is `Yes! Count me in!`.
+- Card titles and summaries are LLM-generated in batch with session cache fallback.
+
+## 14) Ingestion Error Handling
+
+- Ingestion now rolls back failed DB transactions before finalizing run status to avoid Postgres `InFailedSqlTransaction` cascades.
+- CLI ingestion exits non-zero when run status is `failed`.
