@@ -80,6 +80,56 @@ def _format_price_for_ui(price_max: Any) -> str:
         return ""
 
 
+def _parse_event_datetime(value: Any) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value
+    s = str(value).strip()
+    if not s:
+        return None
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except ValueError:
+        try:
+            return datetime.strptime(s[:10], "%Y-%m-%d")
+        except ValueError:
+            return None
+
+
+def _looks_like_recurring_event(event: dict[str, Any]) -> bool:
+    text = f"{event.get('title', '')} {event.get('description', '')}".lower()
+    recurring_hints = [
+        "multiple dates",
+        "various dates",
+        "select dates",
+        "every ",
+        "daily",
+        "weekly",
+        "recurring",
+        "runs through",
+        "through ",
+    ]
+    return any(hint in text for hint in recurring_hints)
+
+
+def _event_schedule_label(event: dict[str, Any], *, month_label: str) -> str:
+    """Return user-facing schedule text for event cards."""
+    start_dt = _parse_event_datetime(event.get("date_start"))
+    end_dt = _parse_event_datetime(event.get("date_end"))
+    if start_dt and end_dt:
+        if start_dt.date() == end_dt.date():
+            return _format_datetime_for_ui(start_dt.isoformat())
+        return f"{start_dt.strftime('%b %d')} - {end_dt.strftime('%b %d')}"
+    if start_dt:
+        return _format_datetime_for_ui(start_dt.isoformat())
+    if end_dt:
+        return end_dt.strftime("%b %d")
+    if _looks_like_recurring_event(event):
+        return f"Multiple dates in {month_label}"
+    return ""
+
+
 def _inject_landing_styles() -> None:
     st.markdown(
         """
@@ -524,9 +574,9 @@ def render_swipe() -> None:
                 if desc:
                     st.caption(desc[:220] + ("..." if len(desc) > 220 else ""))
                 meta_parts: list[str] = []
-                dt_label = _format_datetime_for_ui(event.get("date_start"))
-                if dt_label:
-                    meta_parts.append(f"**When:** {dt_label}")
+                schedule_label = _event_schedule_label(event, month_label=voting["month_label"])
+                if schedule_label:
+                    meta_parts.append(f"**When:** {schedule_label}")
                 location = str(event.get("location", "")).strip()
                 if location:
                     meta_parts.append(f"**Where:** {location}")

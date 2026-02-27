@@ -5,7 +5,7 @@ Filters and ranks events for websites-only mode with quality heuristics.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 PRIORITY_KEYWORDS = frozenset(
@@ -63,9 +63,7 @@ def _in_target_month(dt: datetime | None, year: int | None, month: int | None) -
         return True
     if year is not None and dt.year != year:
         return False
-    if month is not None and dt.month != month:
-        return False
-    return True
+    return not (month is not None and dt.month != month)
 
 
 def curate_voting_events(
@@ -87,21 +85,35 @@ def curate_voting_events(
     Args:
         events: Raw event dicts with id, title, description, date_start, source.
         target_year: Optional year to filter (e.g. 2026).
-        target_month: Optional month 1–12 to filter.
+        target_month: Optional month 1-12 to filter.
         websites_only: If True, keep only source == 'scraped'.
         top_n: Maximum number of events to return.
 
     Returns:
         Sorted list of top events, capped at top_n.
     """
-    filtered: list[dict[str, Any]] = []
+    website_events: list[dict[str, Any]] = []
     for ev in events:
         if websites_only and ev.get("source") != "scraped":
             continue
+        website_events.append(ev)
+
+    filtered: list[dict[str, Any]] = []
+    for ev in website_events:
         dt = _parse_date_start(ev.get("date_start"))
-        if not _in_target_month(dt, target_year, target_month):
-            continue
-        filtered.append(ev)
+        if _in_target_month(dt, target_year, target_month):
+            filtered.append(ev)
+
+    # If target-month filter is too strict and returns no events, fall back to upcoming
+    # websites-only events so users can still vote instead of seeing an empty page.
+    if not filtered and (target_year is not None or target_month is not None):
+        now_date = datetime.now(UTC).date()
+        upcoming = []
+        for ev in website_events:
+            dt = _parse_date_start(ev.get("date_start"))
+            if dt is not None and dt.date() >= now_date:
+                upcoming.append(ev)
+        filtered = upcoming if upcoming else website_events
 
     def sort_key(e: dict[str, Any]) -> tuple[float, int, str]:
         q = -_quality_score(e)  # negate for descending

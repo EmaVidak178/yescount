@@ -1,11 +1,35 @@
 from __future__ import annotations
 
+import re
+from datetime import UTC
 from typing import Any
 
 import requests
 from bs4 import BeautifulSoup
+from dateutil import parser as date_parser
 
 from src.ingestion.normalizer import normalize_scraped
+
+DATE_PATTERN = re.compile(
+    r"\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|"
+    r"jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|"
+    r"dec(?:ember)?)\s+\d{1,2}(?:,\s*\d{4})?\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_date_start(raw_text: str) -> str | None:
+    """Best-effort extraction of event date from scraped card text."""
+    match = DATE_PATTERN.search(raw_text)
+    if not match:
+        return None
+    try:
+        dt = date_parser.parse(match.group(0))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt.isoformat()
+    except (ValueError, TypeError, OverflowError):
+        return None
 
 
 def scrape_site(url: str, source_name: str | None = None) -> list[dict[str, Any]]:
@@ -17,11 +41,12 @@ def scrape_site(url: str, source_name: str | None = None) -> list[dict[str, Any]
     for idx, card in enumerate(soup.select("article, .event, .card")):
         raw_text = card.get_text(" ", strip=True)
         title = raw_text[:120]
+        detected_date = _extract_date_start(raw_text)
         items.append(
             {
                 "title": title or f"Scraped Event {idx + 1}",
                 "description": raw_text,
-                "date_start": None,
+                "date_start": detected_date,
                 "source_id": f"{source_label}-{idx}",
                 "url": url,
                 "location": "",

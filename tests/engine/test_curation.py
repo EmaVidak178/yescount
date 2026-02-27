@@ -139,3 +139,14 @@ def test_missing_id_defaults_to_zero_in_sort():
     assert len(result) == 2
     # id=0 (missing) sorts before id=1, so Z comes first
     assert result[0]["title"] == "Z"
+
+
+def test_fallback_to_upcoming_when_target_month_has_no_events():
+    """When target month is empty, fallback returns upcoming websites-only events."""
+    events = [
+        {"id": 1, "title": "Feb event", "description": "x", "date_start": "2099-02-15", "source": "scraped"},
+        {"id": 2, "title": "Apr event", "description": "x", "date_start": "2099-04-10", "source": "scraped"},
+    ]
+    result = curate_voting_events(events, target_year=2099, target_month=3, websites_only=True)
+    assert len(result) == 2
+    assert {row["id"] for row in result} == {1, 2}
