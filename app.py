@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import json
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -111,6 +112,58 @@ def _looks_like_recurring_event(event: dict[str, Any]) -> bool:
         "through ",
     ]
     return any(hint in text for hint in recurring_hints)
+
+
+def _event_image_url(event: dict[str, Any]) -> str | None:
+    """Extract image URL from event raw_json if present."""
+    raw = event.get("raw_json")
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return None
+    if not isinstance(raw, dict):
+        return None
+    for key in ("image_url", "image", "imageUrl", "thumbnail_url", "thumbnail"):
+        val = raw.get(key)
+        if val and isinstance(val, str) and val.startswith(("http://", "https://")):
+            return val
+    return None
+
+
+def _inject_swipe_styles() -> None:
+    st.markdown(
+        """
+        <style>
+        .yc-swipe-card {
+            border-radius: 14px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, rgba(109,40,217,0.06) 0%, rgba(2,132,199,0.06) 100%);
+            border: 1px solid rgba(109,40,217,0.25);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .yc-swipe-card-img {
+            width: 100%;
+            height: 140px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 0.75rem;
+            background: linear-gradient(135deg, rgba(109,40,217,0.15) 0%, rgba(219,39,119,0.1) 100%);
+        }
+        .yc-swipe-card-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .yc-swipe-card-body h4 { margin: 0 0 0.4rem 0; font-size: 1.05rem; }
+        .yc-swipe-card-body .yc-swipe-meta { font-size: 0.88rem; opacity: 0.9; margin: 0.25rem 0; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _event_schedule_label(event: dict[str, Any], *, month_label: str) -> str:
@@ -523,6 +576,7 @@ def render_welcome() -> None:
 
 
 def render_swipe() -> None:
+    _inject_swipe_styles()
     runtime = get_runtime()
     conn = runtime["conn"]
     if not st.session_state.session_id or st.session_state.participant_id is None:
@@ -565,25 +619,39 @@ def render_swipe() -> None:
     selected_ids: list[int] = []
     with st.form("vote_form"):
         for idx, event in enumerate(events, start=1):
-            with st.container(border=True):
-                st.markdown(f"**{idx}. {_event_title(event)}**")
-                desc = str(event.get("description", "")).strip()
-                if desc:
-                    st.caption(desc[:220] + ("..." if len(desc) > 220 else ""))
-                meta_parts: list[str] = []
-                schedule_label = _event_schedule_label(event, month_label=voting["month_label"])
-                if schedule_label:
-                    meta_parts.append(f"**When:** {schedule_label}")
-                location = str(event.get("location", "")).strip()
-                if location:
-                    meta_parts.append(f"**Where:** {location}")
-                price_str = _format_price_for_ui(event.get("price_max"))
-                if price_str:
-                    meta_parts.append(f"**Price:** {price_str}")
-                if meta_parts:
-                    st.write(" | ".join(meta_parts))
-                if st.checkbox("Interested", key=f"vote_event_{event['id']}"):
-                    selected_ids.append(int(event["id"]))
+            img_url = _event_image_url(event)
+            desc = str(event.get("description", "")).strip()
+            desc_snippet = (desc[:220] + ("..." if len(desc) > 220 else "")) if desc else ""
+            meta_parts: list[str] = []
+            schedule_label = _event_schedule_label(event, month_label=voting["month_label"])
+            if schedule_label:
+                meta_parts.append(f"When: {schedule_label}")
+            location = str(event.get("location", "")).strip()
+            if location:
+                meta_parts.append(f"Where: {location}")
+            price_str = _format_price_for_ui(event.get("price_max"))
+            if price_str:
+                meta_parts.append(f"Price: {price_str}")
+            meta_str = " | ".join(meta_parts) if meta_parts else ""
+            img_html = ""
+            if img_url:
+                img_html = f'<div class="yc-swipe-card-img"><img src="{html.escape(img_url)}" alt="Event" /></div>'
+            title_esc = html.escape(_event_title(event))
+            desc_esc = html.escape(desc_snippet)
+            meta_esc = html.escape(meta_str)
+            card_html = f"""
+            <div class="yc-swipe-card">
+                {img_html}
+                <div class="yc-swipe-card-body">
+                    <h4>{idx}. {title_esc}</h4>
+                    {f'<p class="yc-swipe-meta">{desc_esc}</p>' if desc_snippet else ''}
+                    {f'<p class="yc-swipe-meta">{meta_esc}</p>' if meta_str else ''}
+                </div>
+            </div>
+            """
+            st.markdown(card_html, unsafe_allow_html=True)
+            if st.checkbox("Interested", key=f"vote_event_{event['id']}"):
+                selected_ids.append(int(event["id"]))
         submitted = st.form_submit_button("Save votes and continue")
 
     if submitted:
@@ -635,23 +703,29 @@ def render_calendar() -> None:
     if not week_days:
         st.info("No more weeks in date range.")
         return
+    # Header row: Mon through Sun
+    weekday_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    header_cols = st.columns(7)
+    for i, name in enumerate(weekday_names):
+        with header_cols[i]:
+            st.markdown(f"**{name}**")
+    # Data row: one cell per day with date + tri-state choice
     selected: list[tuple[str, str, str]] = []
-    for day in week_days:
-        day_label = day.strftime("%a, %b %d")
-        st.markdown(f"**{day_label}**")
-        state_key = f"slot_state_{day.isoformat()}_19_22"
-        choice = st.radio(
-            "Evening slot (7:00 PM - 10:00 PM)",
-            options=["No response", "Available", "Unavailable"],
-            horizontal=True,
-            key=state_key,
-            label_visibility="collapsed",
-        )
-        if choice == "Available":
-            st.success("Available")
-            selected.append((day.isoformat(), "19:00", "22:00"))
-        elif choice == "Unavailable":
-            st.error("Unavailable")
+    data_cols = st.columns(7)
+    for i, day in enumerate(week_days):
+        with data_cols[i]:
+            day_label = day.strftime("%b %d")
+            st.markdown(day_label)
+            state_key = f"slot_state_{day.isoformat()}_19_22"
+            choice = st.radio(
+                "Evening slot (7:00 PM - 10:00 PM)",
+                options=["No response", "Available", "Unavailable"],
+                horizontal=True,
+                key=state_key,
+                label_visibility="collapsed",
+            )
+            if choice == "Available":
+                selected.append((day.isoformat(), "19:00", "22:00"))
     b_prev, b_submit, b_next, b_results = st.columns(4)
     with b_prev:
         if st.button("Prev week"):
@@ -709,7 +783,17 @@ def render_results() -> None:
         )
         names = interested_by_event.get(int(rec["id"]), [])
         if names:
-            st.markdown(f"**Interested:** {', '.join(names)}")
+            badges_html = " ".join(
+                f'<span style="display:inline-block;background:#6d28d9;color:white;'
+                f'padding:2px 8px;border-radius:12px;margin:2px;font-size:0.85em;">'
+                f"{html.escape(n)}</span>"
+                for n in names
+            )
+            st.markdown(
+                f'**Interested:** <span style="display:flex;flex-wrap:wrap;gap:4px;'
+                f'align-items:center;">{badges_html}</span>',
+                unsafe_allow_html=True,
+            )
     if group_availability["slots"]:
         top_slots = sorted(
             group_availability["slots"],
