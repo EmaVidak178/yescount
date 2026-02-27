@@ -74,7 +74,8 @@ def normalize_scraped(raw: dict[str, Any]) -> dict[str, Any]:
     return {
         "title": title or "Untitled Event",
         "description": description,
-        "date_start": parse_date(raw.get("date_start")) or datetime.now(UTC).isoformat(),
+        # Keep empty string for unclear/multi-date scraped records; UI will show "Multiple dates".
+        "date_start": parse_date(raw.get("date_start")) or "",
         "date_end": parse_date(raw.get("date_end")),
         "location": (raw.get("location") or "").strip(),
         "price_min": price_min,

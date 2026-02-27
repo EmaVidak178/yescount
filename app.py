@@ -169,18 +169,30 @@ def _inject_swipe_styles() -> None:
 
 def _event_schedule_label(event: dict[str, Any], *, month_label: str) -> str:
     """Return user-facing schedule text for event cards."""
+    raw = event.get("raw_json")
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
+    date_status = str(raw.get("date_status") or "").strip().lower()
+    if date_status in {"multiple", "unclear"}:
+        return "Multiple dates"
+
     start_dt = _parse_event_datetime(event.get("date_start"))
     end_dt = _parse_event_datetime(event.get("date_end"))
     if start_dt and end_dt:
         if start_dt.date() == end_dt.date():
-            return _format_datetime_for_ui(start_dt.isoformat())
+            return start_dt.strftime("%b %d, %Y")
         return f"{start_dt.strftime('%b %d')} - {end_dt.strftime('%b %d')}"
     if start_dt:
-        return _format_datetime_for_ui(start_dt.isoformat())
+        return start_dt.strftime("%b %d, %Y")
     if end_dt:
-        return end_dt.strftime("%b %d")
+        return end_dt.strftime("%b %d, %Y")
     if _looks_like_recurring_event(event):
-        return f"Multiple dates in {month_label}"
+        return "Multiple dates"
     return ""
 
 
@@ -231,20 +243,47 @@ def _inject_landing_styles() -> None:
 
 def _render_landing_hero() -> None:
     hero_path = Path(__file__).resolve().parent / "assets" / "yescount-hero.png"
-    st.markdown('<div class="yc-hero-wrap">', unsafe_allow_html=True)
-    if hero_path.exists():
-        st.image(str(hero_path), use_container_width=True)
-    else:
-        st.markdown(
-            """
-            <div class="yc-hero-fallback">
-                <p class="yc-hero-title">YesCount</p>
-                <p class="yc-hero-tagline">Live your social life to the fullest.</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    st.markdown("</div>", unsafe_allow_html=True)
+    _, center, _ = st.columns([1, 2, 1])
+    with center:
+        st.markdown('<div class="yc-hero-wrap">', unsafe_allow_html=True)
+        if hero_path.exists():
+            st.image(str(hero_path), use_container_width=True)
+        else:
+            st.markdown(
+                """
+                <div class="yc-hero-fallback">
+                    <p class="yc-hero-title">YesCount</p>
+                    <p class="yc-hero-tagline">Live your social life to the fullest.</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_top_banner() -> None:
+    assets_dir = Path(__file__).resolve().parent / "assets"
+    candidates = [
+        assets_dir / "yescount-banner.png",
+        assets_dir / "yescount_banner.png",
+    ]
+    banner_path = next((path for path in candidates if path.exists()), None)
+    _, center, _ = st.columns([1, 2, 1])
+    with center:
+        if banner_path is not None:
+            st.image(str(banner_path), use_container_width=True)
+        else:
+            st.markdown(
+                """
+                <div class="yc-hero-wrap">
+                    <div class="yc-hero-fallback">
+                        <p class="yc-hero-title">YesCount</p>
+                        <p class="yc-hero-tagline">Less texting. More going.</p>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
 
 def _voting_context() -> dict[str, Any]:
@@ -430,7 +469,6 @@ def init_state() -> None:
 
 
 def title_and_breadcrumb() -> None:
-    st.title("YesCount")
     mapping = {
         "landing": "Landing",
         "welcome": "Welcome",
@@ -952,9 +990,17 @@ def main() -> None:
         st.warning(warning)
     status = readiness(runtime["conn"], runtime.get("collection"))
     if not status["ok"]:
+        db_status = str(status.get("dependencies", {}).get("database", "")).lower()
+        if "connection is closed" in db_status and not st.session_state.get(
+            "_db_reconnect_attempted"
+        ):
+            st.session_state._db_reconnect_attempted = True
+            get_runtime.clear()
+            st.rerun()
         st.error("Readiness check failed.")
         st.json(status)
         return
+    st.session_state._db_reconnect_attempted = False
     chroma_status = status["dependencies"].get("chroma", "")
     if chroma_status.startswith("degraded"):
         st.warning("Search embeddings are degraded. Core planning features remain available.")
@@ -964,6 +1010,8 @@ def main() -> None:
 
     if st.query_params.get("session") and st.session_state.current_view == "landing":
         st.session_state.current_view = "welcome"
+    _inject_landing_styles()
+    _render_top_banner()
     title_and_breadcrumb()
     if st.session_state.current_view == "landing":
         render_landing()

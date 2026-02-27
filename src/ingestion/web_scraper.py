@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC
+from datetime import UTC, datetime
 from typing import Any
 
 import requests
@@ -18,18 +18,32 @@ DATE_PATTERN = re.compile(
 )
 
 
-def _extract_date_start(raw_text: str) -> str | None:
-    """Best-effort extraction of event date from scraped card text."""
-    match = DATE_PATTERN.search(raw_text)
-    if not match:
-        return None
+def _extract_dates(raw_text: str) -> tuple[str | None, str]:
+    """Extract a single clear date. Return (iso_datetime_or_none, status)."""
+    matches = DATE_PATTERN.findall(raw_text)
+    if not matches:
+        return None, "unclear"
+    unique = []
+    seen = set()
+    for m in matches:
+        key = m.lower().strip()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(m)
+    # More than one distinct date usually means a range/recurring schedule.
+    if len(unique) != 1:
+        return None, "multiple"
     try:
-        dt = date_parser.parse(match.group(0))
+        # Use a midnight default to avoid inheriting "current time" from parser defaults.
+        default_dt = datetime(datetime.now(UTC).year, 1, 1, 0, 0, tzinfo=UTC)
+        dt = date_parser.parse(unique[0], default=default_dt)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)
-        return dt.isoformat()
+        dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        return dt.isoformat(), "single"
     except (ValueError, TypeError, OverflowError):
-        return None
+        return None, "unclear"
 
 
 def scrape_site(url: str, source_name: str | None = None) -> list[dict[str, Any]]:
@@ -41,12 +55,13 @@ def scrape_site(url: str, source_name: str | None = None) -> list[dict[str, Any]
     for idx, card in enumerate(soup.select("article, .event, .card")):
         raw_text = card.get_text(" ", strip=True)
         title = raw_text[:120]
-        detected_date = _extract_date_start(raw_text)
+        detected_date, date_status = _extract_dates(raw_text)
         items.append(
             {
                 "title": title or f"Scraped Event {idx + 1}",
                 "description": raw_text,
                 "date_start": detected_date,
+                "date_status": date_status,
                 "source_id": f"{source_label}-{idx}",
                 "url": url,
                 "location": "",
