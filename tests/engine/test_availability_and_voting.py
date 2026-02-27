@@ -82,9 +82,7 @@ def test_vote_change_interested_to_not_interested(sqlite_db, sample_event):
     assert event_id not in get_session_vote_tallies(sqlite_db, session_id)
 
 
-def test_get_session_interested_participants_by_event_stable_ordering(
-    sqlite_db, sample_event
-):
+def test_get_session_interested_participants_by_event_stable_ordering(sqlite_db, sample_event):
     """Participant names are stably ordered by name within each event."""
     event_id = upsert_event(sqlite_db, sample_event)
     session_id = create_session(sqlite_db, "Plan", "Ema", {}, 7)

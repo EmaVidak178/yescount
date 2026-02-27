@@ -10,8 +10,8 @@
 
 - Ingestion orchestrator: `src/ingestion/run_ingestion.py`
 - Source config loader: `src/ingestion/source_config.py`
-- Required sources config: `config/scraper_sites.yaml`
-- Ingestion run/source tracking tables in SQLite:
+- Required sources config: `config/scraper_sites.yaml` (6 website sources)
+- Ingestion run/source tracking tables in Postgres (when `DATABASE_URL` set) or SQLite (fallback):
   - `ingestion_runs`
   - `ingestion_source_checks`
 - Freshness-triggered ingestion call from app runtime:
@@ -58,13 +58,11 @@ For Streamlit app secrets:
 
 ## Friday Schedule
 
-- Workflow cron: Friday at `10:00 UTC` (about 6:00 ET during daylight savings).
+- Workflow cron: **Friday at 10:00 UTC** (about 6:00 ET during daylight savings).
 
 ## Important Deployment Caveat
 
-If app runtime uses local SQLite/Chroma on ephemeral disk, scheduled ingestion from a separate runner may not update the same persistent data users read from.
-
-For reliable production behavior, ensure scheduler and app read/write the same durable storage backend.
+With `DATABASE_URL` set, app and weekly workflow both use hosted Postgres for events and ingestion runs. Chroma remains local to the app instance; the workflow cannot update the app's Chroma. For reliable production behavior, ensure both use the same `DATABASE_URL`.
 
 ## Manual Trigger
 

@@ -390,10 +390,7 @@ def render_landing() -> None:
     runtime = get_runtime()
     conn = runtime["conn"]
     voting = _voting_context()
-    st.info(
-        f"Now voting for {voting['month_label']}. "
-        f"Deadline: {voting['deadline_label']}."
-    )
+    st.info(f"Now voting for {voting['month_label']}. Deadline: {voting['deadline_label']}.")
     if not voting["is_open"]:
         st.warning("Voting is currently closed. You can still create/join sessions.")
     col_a, col_b = st.columns(2)

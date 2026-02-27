@@ -4,6 +4,8 @@ This guide shows exactly where to click and what to paste so your app can run in
 
 Use this document whenever you redeploy or rotate keys.
 
+**Current tech stack:** Hosted Postgres (sessions, events, votes), local Chroma (embeddings), 6 website sources in `config/scraper_sites.yaml`. Weekly Friday ingestion via GitHub Actions.
+
 ## What To Do Next (Short Answer)
 
 Yes, your understanding is correct.
@@ -399,11 +401,9 @@ You are ready for full manual testing when all are true:
 
 ## Quick Reference (Names Only)
 
-- `OPENAI_API_KEY`
-- `NYC_OPEN_DATA_APP_TOKEN`
-- `NYC_OPEN_DATA_DATASET_ID`
-- `BASE_URL`
-- `DATABASE_URL`
+**Streamlit secrets (required):** `OPENAI_API_KEY`, `NYC_OPEN_DATA_APP_TOKEN`, `NYC_OPEN_DATA_DATASET_ID`, `BASE_URL`, `DATABASE_URL`
+
+**GitHub Actions secrets (for weekly ingestion):** Same five so the workflow writes to the same Postgres as the app.
 
 ## Quick "Am I Done?" Checklist
 

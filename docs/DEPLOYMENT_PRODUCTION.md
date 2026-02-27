@@ -19,16 +19,16 @@ Move from MVP deployment (ephemeral local disk on Streamlit Cloud) to reliable u
 
 ## 2) Durable Storage Architecture
 
-### Current MVP mode
+### Current production stack (shipped)
 
-- SQLite (`data/yescount.db`) and Chroma (`data/chroma/`) use local disk.
-- Streamlit Cloud disk is ephemeral and can lose data on restart.
+- **PostgreSQL**: Hosted Postgres via `DATABASE_URL` for sessions, votes, events, ingestion runs.
+- **Chroma**: Local (`data/chroma/`) for vector embeddings; remains on app instance disk.
+- **Sources**: 6 website sources in `config/scraper_sites.yaml` (secretnyc, timeout_newyork, hiddennyc, untappedcities, anisah_immersive, fever_newyork).
+- Ingestion runs out-of-band via weekly Friday GitHub Actions workflow.
 
-### Production target
+### Future improvements
 
-- Replace SQLite with managed PostgreSQL.
-- Replace local Chroma persistence with managed vector storage or externally hosted Chroma.
-- Run ingestion out-of-band (scheduled job), not in user request path.
+- Migrate Chroma to managed vector storage for durability across restarts.
 
 ## 3) Recommended Rollout Phases
 
@@ -75,10 +75,12 @@ Move from MVP deployment (ephemeral local disk on Streamlit Cloud) to reliable u
 
 ### Post-deploy
 
-- check readiness/liveness output
-- execute create -> join -> vote -> availability -> recommendations
-- verify session links and invite text in real browser
-- inspect logs for errors during first user sessions
+- [ ] Check readiness/liveness output.
+- [ ] Run manual Weekly Ingestion workflow in GitHub Actions; confirm success.
+- [ ] Durability: create session, add vote, restart app; confirm data persists.
+- [ ] End-to-end: create -> join -> vote -> availability -> recommendations.
+- [ ] Verify session links and invite text in real browser.
+- [ ] Inspect logs for errors during first user sessions.
 
 ## 6) User-Facing Readiness Exit Criteria
 

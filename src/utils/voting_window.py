@@ -66,9 +66,7 @@ def get_voting_window_close(utc_now: datetime) -> datetime:
         utc_now = utc_now.replace(tzinfo=UTC)
     if utc_now.month == 12:
         return datetime(utc_now.year + 1, 1, 1, 23, 59, 59, 999999, tzinfo=UTC)
-    return datetime(
-        utc_now.year, utc_now.month + 1, 1, 23, 59, 59, 999999, tzinfo=UTC
-    )
+    return datetime(utc_now.year, utc_now.month + 1, 1, 23, 59, 59, 999999, tzinfo=UTC)
 
 
 def format_deadline_label(close_utc: datetime) -> str:
