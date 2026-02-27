@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sqlite3
+import sys
 from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -28,6 +29,19 @@ def _safe_rollback(conn: Any) -> None:
     """Reset failed DB transactions without masking original errors."""
     with suppress(Exception):
         conn.rollback()
+
+
+def _log_source_status(
+    source_name: str,
+    status: str,
+    events_found: int,
+    error: str = "",
+) -> None:
+    msg = f"[INGESTION] source={source_name} status={status} events={events_found}"
+    if error:
+        msg += f" error={error}"
+    stream = sys.stderr if status in {"failed", "partial"} else sys.stdout
+    print(msg, file=stream)
 
 
 def should_refresh(conn: sqlite3.Connection, max_staleness_hours: int) -> bool:
@@ -127,6 +141,7 @@ def run_ingestion(
                 status="success",
                 events_found=inserted,
             )
+            _log_source_status("nyc_open_data", "success", inserted)
         else:
             record_ingestion_source_check(
                 conn,
@@ -137,6 +152,12 @@ def run_ingestion(
                 status="skipped",
                 events_found=0,
                 error="NYC_OPEN_DATA_DATASET_ID not configured",
+            )
+            _log_source_status(
+                "nyc_open_data",
+                "skipped",
+                0,
+                "NYC_OPEN_DATA_DATASET_ID not configured",
             )
             required_failed.append("nyc_open_data")
 
@@ -153,6 +174,7 @@ def run_ingestion(
                     events_found=0,
                     error="disabled",
                 )
+                _log_source_status(source.name, "skipped", 0, "disabled")
                 continue
 
             try:
@@ -171,6 +193,12 @@ def run_ingestion(
                     events_found=inserted,
                     error="" if inserted > 0 else "no events extracted",
                 )
+                _log_source_status(
+                    source.name,
+                    status,
+                    inserted,
+                    "" if inserted > 0 else "no events extracted",
+                )
             except requests.RequestException as exc:
                 _safe_rollback(conn)
                 if source.required:
@@ -185,6 +213,7 @@ def run_ingestion(
                     events_found=0,
                     error=str(exc),
                 )
+                _log_source_status(source.name, "failed", 0, str(exc))
             except Exception as exc:
                 _safe_rollback(conn)
                 if source.required:
@@ -199,6 +228,7 @@ def run_ingestion(
                     events_found=0,
                     error=str(exc),
                 )
+                _log_source_status(source.name, "failed", 0, str(exc))
 
         if required_failed:
             status = "failed" if settings.ingestion_required_sources_strict else "degraded"
@@ -209,6 +239,10 @@ def run_ingestion(
                 status=status,
                 total_events_upserted=total_upserted,
                 error_summary=summary,
+            )
+            print(
+                f"[INGESTION] run_status={status} total_events={total_upserted} {summary}",
+                file=sys.stderr,
             )
             return {
                 "status": status,
@@ -223,6 +257,10 @@ def run_ingestion(
             total_events_upserted=total_upserted,
             error_summary="",
         )
+        print(
+            f"[INGESTION] run_status=success total_events={total_upserted}",
+            file=sys.stdout,
+        )
         return {"status": "success", "events_upserted": total_upserted}
     except Exception as exc:
         errors.append(str(exc))
@@ -233,6 +271,10 @@ def run_ingestion(
             status="failed",
             total_events_upserted=total_upserted,
             error_summary="; ".join(errors)[:1000],
+        )
+        print(
+            f"[INGESTION] run_status=failed total_events={total_upserted} error={errors[-1]}",
+            file=sys.stderr,
         )
         return {"status": "failed", "events_upserted": total_upserted, "errors": errors}
 

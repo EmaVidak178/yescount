@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 from datetime import UTC, datetime
+from time import sleep
 from typing import Any
 from urllib.parse import urljoin
 
@@ -34,6 +35,36 @@ GENERIC_LISTICLE_PATTERNS = (
     "happenings",
     "you can't miss",
 )
+
+DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/123.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+}
+
+
+def _fetch_html(url: str) -> str:
+    """Fetch URL with retry/backoff for transient web-source failures."""
+    last_exc: Exception | None = None
+    for attempt in range(3):
+        try:
+            try:
+                resp = requests.get(url, timeout=30, headers=DEFAULT_HEADERS)
+            except TypeError:
+                # Compatibility with tests that monkeypatch requests.get signature.
+                resp = requests.get(url, timeout=30)
+            resp.raise_for_status()
+            return resp.text
+        except requests.RequestException as exc:
+            last_exc = exc
+            if attempt < 2:
+                sleep(1.2 * (attempt + 1))
+                continue
+    assert last_exc is not None
+    raise last_exc
 
 
 def _extract_dates(raw_text: str) -> tuple[str | None, str | None, str]:
@@ -173,9 +204,7 @@ def _extract_secretnyc_events(
 
 
 def scrape_site(url: str, source_name: str | None = None) -> list[dict[str, Any]]:
-    resp = requests.get(url, timeout=30)
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "html.parser")
+    soup = BeautifulSoup(_fetch_html(url), "html.parser")
     items: list[dict[str, Any]] = []
     source_label = source_name or url
 
