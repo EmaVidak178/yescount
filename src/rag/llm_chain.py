@@ -61,3 +61,41 @@ def generate_event_titles_batch(
         return out
     except Exception:
         return {}
+
+
+def generate_event_summaries_batch(
+    client: OpenAI, events: list[dict[str, Any]], max_len: int = 220
+) -> dict[int, str]:
+    """Generate concise helpful event summaries in one batch call."""
+    if not events:
+        return {}
+    lines = []
+    for ev in events:
+        eid = int(ev.get("id") or 0)
+        title = str(ev.get("title") or "")[:180]
+        desc = str(ev.get("description") or "")[:500]
+        lines.append(f"ID{eid}: {title}\n{desc}")
+    prompt = (
+        "For each event below, write one concise and useful summary in 1-2 sentences. "
+        "Focus on what the event is and why someone would go. "
+        "Output format: one line per event as 'ID<id>: <summary>'.\n\n"
+        + "\n---\n".join(lines)
+    )
+    try:
+        response = client.responses.create(model="gpt-4.1-mini", input=prompt)
+        out: dict[int, str] = {}
+        for line in response.output_text.strip().split("\n"):
+            line = line.strip()
+            if line.startswith("ID") and ": " in line:
+                idx = line.find(": ")
+                try:
+                    eid = int(line[2:idx])
+                    summary = line[idx + 2 :].strip()
+                    if len(summary) > max_len:
+                        summary = summary[: max_len - 3] + "..."
+                    out[eid] = summary or ""
+                except ValueError:
+                    continue
+        return out
+    except Exception:
+        return {}

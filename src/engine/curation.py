@@ -87,7 +87,14 @@ def _looks_like_event(event: dict[str, Any]) -> bool:
     title = (event.get("title") or "").lower()
     desc = (event.get("description") or "").lower()
     text = f"{title} {desc}"
-    return not any(kw in text for kw in NON_EVENT_KEYWORDS)
+    if any(kw in text for kw in NON_EVENT_KEYWORDS):
+        return False
+    # Filter generic roundup/listicle records that often represent multiple events.
+    if "things to do" in title or "happenings" in title or "you can't miss" in title:
+        return False
+    if "top " in title and any(ch.isdigit() for ch in title):
+        return False
+    return not ("best " in title and any(ch.isdigit() for ch in title))
 
 
 def _in_target_month(dt: datetime | None, year: int | None, month: int | None) -> bool:

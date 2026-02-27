@@ -30,7 +30,11 @@ from src.engine.voting import (
     get_session_vote_tallies,
 )
 from src.ingestion.run_ingestion import run_ingestion
-from src.rag.llm_chain import generate_event_titles_batch, summarize_events
+from src.rag.llm_chain import (
+    generate_event_summaries_batch,
+    generate_event_titles_batch,
+    summarize_events,
+)
 from src.rag.retriever import retrieve_events
 from src.sessions.manager import (
     create_new_session,
@@ -243,22 +247,20 @@ def _inject_landing_styles() -> None:
 
 def _render_landing_hero() -> None:
     hero_path = Path(__file__).resolve().parent / "assets" / "yescount-hero.png"
-    _, center, _ = st.columns([1, 2, 1])
-    with center:
-        st.markdown('<div class="yc-hero-wrap">', unsafe_allow_html=True)
-        if hero_path.exists():
-            st.image(str(hero_path), use_container_width=True)
-        else:
-            st.markdown(
-                """
-                <div class="yc-hero-fallback">
-                    <p class="yc-hero-title">YesCount</p>
-                    <p class="yc-hero-tagline">Live your social life to the fullest.</p>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('<div class="yc-hero-wrap">', unsafe_allow_html=True)
+    if hero_path.exists():
+        st.image(str(hero_path), use_container_width=True)
+    else:
+        st.markdown(
+            """
+            <div class="yc-hero-fallback">
+                <p class="yc-hero-title">YesCount</p>
+                <p class="yc-hero-tagline">Live your social life to the fullest.</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _render_top_banner() -> None:
@@ -268,22 +270,20 @@ def _render_top_banner() -> None:
         assets_dir / "yescount_banner.png",
     ]
     banner_path = next((path for path in candidates if path.exists()), None)
-    _, center, _ = st.columns([1, 2, 1])
-    with center:
-        if banner_path is not None:
-            st.image(str(banner_path), use_container_width=True)
-        else:
-            st.markdown(
-                """
-                <div class="yc-hero-wrap">
-                    <div class="yc-hero-fallback">
-                        <p class="yc-hero-title">YesCount</p>
-                        <p class="yc-hero-tagline">Less texting. More going.</p>
-                    </div>
+    if banner_path is not None:
+        st.image(str(banner_path), use_container_width=True)
+    else:
+        st.markdown(
+            """
+            <div class="yc-hero-wrap">
+                <div class="yc-hero-fallback">
+                    <p class="yc-hero-title">YesCount</p>
+                    <p class="yc-hero-tagline">Less texting. More going.</p>
                 </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def _voting_context() -> dict[str, Any]:
@@ -326,23 +326,30 @@ def _inject_mosaic_styles() -> None:
     )
 
 
-def _get_event_display_titles(events: list[dict[str, Any]]) -> dict[int, str]:
-    """Fetch LLM-generated titles for events; cache in session_state; fallback to truncated."""
-    cache_key = "swipe_display_titles"
+def _get_event_display_copy(events: list[dict[str, Any]]) -> tuple[dict[int, str], dict[int, str]]:
+    """Fetch LLM-generated titles/summaries for events and cache in session_state."""
+    cache_key = "swipe_display_copy"
     event_ids = tuple(int(e.get("id") or 0) for e in events)
     if cache_key not in st.session_state:
         st.session_state[cache_key] = {}
     cached = st.session_state[cache_key]
-    if cached.get("_ids") == event_ids and cached.get("titles"):
-        return cached["titles"]
+    if cached.get("_ids") == event_ids and cached.get("titles") and cached.get("summaries"):
+        return cached["titles"], cached["summaries"]
     runtime = get_runtime()
     client = runtime.get("client")
+    titles: dict[int, str] = {}
+    summaries: dict[int, str] = {}
     if client is not None:
         titles = generate_event_titles_batch(client, events)
-        if titles:
-            st.session_state[cache_key] = {"_ids": event_ids, "titles": titles}
-            return titles
-    return {}
+        summaries = generate_event_summaries_batch(client, events)
+        if titles or summaries:
+            st.session_state[cache_key] = {
+                "_ids": event_ids,
+                "titles": titles,
+                "summaries": summaries,
+            }
+            return titles, summaries
+    return {}, {}
 
 
 def _render_event_card(
@@ -352,21 +359,20 @@ def _render_event_card(
     voting: dict[str, Any],
     selected_ids: list[int],
     display_titles: dict[int, str] | None = None,
+    display_summaries: dict[int, str] | None = None,
 ) -> None:
     """Render one event card for mosaic (image, title, desc, date, checkbox)."""
     eid = int(event.get("id") or 0)
     title = (display_titles or {}).get(eid) or _event_title(event)
+    summary = (display_summaries or {}).get(eid) or str(event.get("description", "")).strip()
     img_url = _event_image_url(event)
-    desc = str(event.get("description", "")).strip()
-    if len(desc) > 180:
-        cut = desc[:181].rfind(" ")
-        desc_snippet = (desc[:cut] + "...") if cut > 90 else (desc[:180] + "...")
-    else:
-        desc_snippet = desc
+    if len(summary) > 220:
+        cut = summary[:221].rfind(" ")
+        summary = (summary[:cut] + "...") if cut > 110 else (summary[:220] + "...")
     meta_parts: list[str] = []
     schedule_label = _event_schedule_label(event, month_label=voting["month_label"])
     if schedule_label:
-        meta_parts.append(f"When: {schedule_label}")
+        meta_parts.append(f"**Date:** {schedule_label}")
     location = str(event.get("location", "")).strip()
     if location:
         meta_parts.append(f"Where: {location}")
@@ -378,11 +384,11 @@ def _render_event_card(
         if img_url:
             st.image(img_url, use_container_width=True)
         st.markdown(f"**{idx}. {title}**")
-        if desc_snippet:
-            st.caption(desc_snippet)
+        if summary:
+            st.caption(summary)
         if meta_str:
-            st.write(meta_str)
-        if st.checkbox("Interested", key=f"vote_event_{event['id']}"):
+            st.markdown(meta_str)
+        if st.checkbox("Yes! Count me in!", key=f"vote_event_{event['id']}"):
             selected_ids.append(int(event["id"]))
 
 
@@ -736,7 +742,7 @@ def render_swipe() -> None:
 
     st.markdown(f"### {len(events)}/30: Select Your Favorites!")
     _inject_mosaic_styles()
-    display_titles = _get_event_display_titles(events)
+    display_titles, display_summaries = _get_event_display_copy(events)
     selected_ids: list[int] = []
     with st.form("vote_form"):
         for row_start in range(0, len(events), 3):
@@ -750,6 +756,7 @@ def render_swipe() -> None:
                         voting=voting,
                         selected_ids=selected_ids,
                         display_titles=display_titles,
+                        display_summaries=display_summaries,
                     )
         submitted = st.form_submit_button("Save votes and continue")
 
