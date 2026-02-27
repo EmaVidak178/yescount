@@ -15,7 +15,8 @@ The following behaviors are currently implemented and should be treated as activ
 - SQL layer supports both SQLite and Postgres parameter styles, with deployed durability targeting hosted Postgres via `DATABASE_URL`.
 - Readiness treats database as required and Chroma as optional/degraded.
 - Weekly ingestion runs on Friday with required source tracking per run.
-- Website scraping uses a generic parser and now performs best-effort date extraction from card text to improve monthly curation accuracy.
+- Website scraping uses a generic parser with retries/backoff and browser-like headers; date extraction supports single/range/multiple/unclear outcomes.
+- SecretNYC listicle pages are split into individual section-level events instead of being treated as one aggregate card.
 - Voting curation is websites-only, top 30, and includes a fallback to upcoming website events when strict target-month filtering yields no cards.
 - Session preview query grouping is Postgres-safe (`GROUP BY` includes selected non-aggregated columns).
 
@@ -98,10 +99,11 @@ class SiteConfig:
 ```
 
 **Implementation notes:**
-- Uses `requests` + `BeautifulSoup` for static HTML sites.
+- Uses `requests` + `BeautifulSoup` for static HTML sites with bounded retries/backoff.
 - Playwright support deferred to a future milestone for JS-rendered sites.
 - Site configs stored in `config/scraper_sites.yaml`.
 - Each scraper run logs the number of events found per site.
+- Scraper status supports: `single`, `range`, `multiple`, `unclear` for date interpretation.
 
 ### 3.3 `ingestion/normalizer.py`
 
@@ -474,7 +476,7 @@ flowchart LR
 | OpenAI API error (5xx) | Retry up to 2 times with 5s delay. Surface error to user on final failure. |
 | Socrata API rate limit | Exponential backoff: 2s, 4s, 8s. Max 3 retries. |
 | Socrata API timeout | 30s timeout per request. Retry once. |
-| Web scraper HTTP error | Log and skip the failing site. Continue with other sites. |
+| Web scraper HTTP error | Retry with backoff; on exhaustion, log source-level failure and continue. |
 | Web scraper parse error | Log the raw HTML snippet + error. Skip the malformed event. |
 | SQLite write conflict | WAL mode avoids most conflicts. Retry once on `SQLITE_BUSY`. |
 | ChromaDB upsert failure | Retry once. Log and skip on second failure (event remains in SQLite). |
@@ -484,6 +486,7 @@ flowchart LR
 **Retry boundaries and dependency behavior:**
 - All external network calls must define timeouts (no unbounded waits).
 - Retries are bounded; if exhausted, return a typed error and degrade gracefully where possible.
+- Ingestion failure paths must rollback open DB transactions before final status writes (prevents Postgres `InFailedSqlTransaction` cascades).
 - If ChromaDB is unavailable, retrieval falls back to metadata-filtered SQLite search (without semantic ranking).
 - If OpenAI summarization fails, return raw event cards without LLM summary rather than failing the entire flow.
 

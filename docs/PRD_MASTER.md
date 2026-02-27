@@ -159,6 +159,8 @@ flowchart TD
 | [PRD_FRONTEND.md](PRD_FRONTEND.md) | Streamlit views, session management UI, component patterns |
 | [PRD_UNIT_TESTS.md](PRD_UNIT_TESTS.md) | pytest setup, test categories, coverage targets, fixtures |
 | [PRD_LOCAL_CI.md](PRD_LOCAL_CI.md) | Makefile, pre-commit hooks, GitHub Actions, dependency management |
+| [HYBRID_STRATEGY_HISTORY_AND_GUIDE.md](HYBRID_STRATEGY_HISTORY_AND_GUIDE.md) | Current hybrid architecture rationale (Track A + durable SQL + local vectors) |
+| [AGENT_D_FINAL_SIGNOFF_CHECKLIST.md](AGENT_D_FINAL_SIGNOFF_CHECKLIST.md) | Final go/no-go release checklist and evidence format |
 
 ---
 
@@ -197,6 +199,7 @@ A deployment is considered successful only if all of the following are true:
 4. **Coverage gate passes:** project coverage remains at or above the agreed minimum threshold.
 5. **Critical journey smoke tests pass:** create session -> join -> vote -> submit availability -> view recommendations.
 6. **Rollback path is available:** previous app version and previous DB schema/data snapshot can be restored.
+7. **Ingestion quality pass:** latest manual ingestion run succeeds and event cards avoid generic roundup/listicle records as standalone events.
 
 ### 7.2 Rollback Requirements
 

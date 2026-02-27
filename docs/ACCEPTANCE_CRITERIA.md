@@ -16,6 +16,8 @@ This matrix maps core PRD requirements to testable acceptance outcomes.
 | FE-08 | Group results | Results view renders top recommendations, interested participant names per event, and top overlap dates/times for gathering. |
 | FE-09 | Navigation | Breadcrumb and back flow preserve logical progression landing -> swipe -> availability -> results. |
 | FE-10 | Accessibility baseline | Keyboard traversal works for interactive controls and contrast remains readable in heatmap tiers. |
+| FE-11 | Event card UX quality | Swipe view shows 3-column masonry cards with image-or-placeholder media, checkbox label `Yes! Count me in!`, and no generic roundup/listicle card titles as standalone events. |
+| FE-12 | Event date label quality | Event card date label is event-specific when clear, shows concise date range when available, and falls back to `Multiple dates` when schedule is unclear/recurring. |
 
 ## Backend
 
@@ -31,6 +33,8 @@ This matrix maps core PRD requirements to testable acceptance outcomes.
 | BE-08 | Retrieval fallback | Retriever returns semantic results when vector index works and falls back to SQLite when vector query fails. |
 | BE-09 | OpenAI resilience | SDK calls use explicit timeout/retries and typed exception handling for reliable errors. |
 | BE-10 | Startup checks | Missing critical env vars fail startup validation with actionable errors; readiness requires database and treats Chroma as optional/degraded. |
+| BE-11 | Ingestion transaction safety | Ingestion failure path rolls back failed DB transaction state before final status update, preventing Postgres transaction-aborted cascades. |
+| BE-12 | Ingestion observability | Ingestion logs include per-source status and error output so GitHub Actions reveals exact failing source(s). |
 
 ## Testing / CI
 
