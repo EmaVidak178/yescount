@@ -38,6 +38,14 @@ from src.utils.invite_text import generate_invite
 TIME_SLOTS = [("17:00", "19:00"), ("19:00", "21:00"), ("21:00", "23:00")]
 
 
+def _format_date_for_ui(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    return str(value)[:10]
+
+
 @st.cache_resource
 def get_runtime() -> dict[str, Any]:
     settings = load_settings()
@@ -348,8 +356,9 @@ def render_swipe() -> None:
     st.caption(f"Card {idx + 1} of {len(events)}")
     st.markdown(f"### {event['title']}")
     st.write(event.get("description", ""))
+    date_label = _format_date_for_ui(event.get("date_start"))
     st.write(
-        f"Date: {event.get('date_start', '')[:10]} | "
+        f"Date: {date_label} | "
         f"Location: {event.get('location', '')} | "
         f"Price: {event.get('price_min', '?')} - {event.get('price_max', '?')}"
     )
