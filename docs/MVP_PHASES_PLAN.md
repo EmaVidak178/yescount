@@ -194,42 +194,59 @@ Restore practical event recall volume without reintroducing Postgres timestamp-i
 
 ---
 
-## 4) MVP Version 3.0 (Quality Expansion Plan)
+## 4) MVP Version 3.0 (Recall + Quality Program)
 
 ### Goal
 
-Build on MVP 2.0 and improve event quality further, while still keeping risk managed and reversible.
+Build on MVP 2.0 with a structured retrieval-quality program that improves top-30 precision, date correctness, and stable recall while preserving rollback safety.
 
-### Scope planned for MVP 3.0
+### Authoritative planning doc for MVP 3.0
 
-In addition to MVP 2.0, implement:
+MVP 3.0 execution is now governed by:
 
-1. **Curation + source-specific scraper improvements for SecretNYC**  
-   (quick quality pass plus targeted extraction improvements).
-2. **Aggressive non-event filtering** in curation.
-3. **Use relaxed fill behavior (6B):** if quality filter is strict, allow controlled backfill to avoid empty experience.
-4. **Apply category exclusions (7):** aggressively exclude non-event categories.
-5. **Mandatory-source evaluation mode (9A):** test and report if mandatory sources are bot-blocked/noisy, then decide operational policy.
-6. **NYC Open Data set to non-required (10B)** for runtime resilience.
-7. **Placeholder design update (11B):** switch placeholders to palette aligned with `assets/YesCount_color_scheme.png`.
-8. **Keep safe image fallback behavior (12 = yes).**
-9. **Keep full-month calendar for all users (13 = yes).**
-10. **Keep updated availability title text (14 = yes).**
-11. **Run full verification suite (15B):** lint + mypy + full pytest + ingestion validation.
-12. **Priority ranking upgrade:** ensure the surfaced top 30 cards are the best 30 available events for the month.
-13. **Filter logic deep-dive + tuning pass:** before implementing aggressive filtering, walk through retrieval -> scraping -> curation -> LLM generation behavior and tune rules iteratively so event recall is not over-restricted.
-14. **RAG/LLM expectation alignment:** ensure pipeline behavior follows this target model:
-    - scrape required websites,
-    - identify true events from retrieved content,
-    - use LLM to generate concise event summaries from source text,
-    - present event list with high relevance and stable volume.
+- `docs/RECALL_IMPROVEMENT.md` (planning-only, implementation-ready roadmap)
+
+That document defines the full problem statement, target architecture, milestones, testing points, risk controls, and release gates.
+
+### MVP 3.0 scope (aligned to RECALL_IMPROVEMENT.md)
+
+In addition to MVP 2.0, MVP 3.0 is executed as five milestones:
+
+1. **M1: Input stabilization + diagnostics**
+   - remove invalid scraped date fallback-to-now behavior
+   - add date/extraction provenance fields and stage-level diagnostics
+2. **M2: Semantic event validation**
+   - LLM semantic validator + deterministic policy gates
+   - enforce in-person NYC + ticket/register signal + semantic event date policy
+3. **M3: Retrieval/ranking hardening**
+   - thresholded hybrid retrieval
+   - verified-event filtering and confidence-aware reranking
+4. **M4: Grounded generation + explainability**
+   - constrain summaries to canonical verified fields
+   - add operator explainability indicators
+5. **M5: Supplemental boost sources**
+   - API-first Eventbrite and Ticketmaster NYC ingestion adapters
+   - dedupe and trust-weighting without overriding A+ source primacy
+
+### Confirmed policy constraints for MVP 3.0
+
+- Keep A+ sources as primary source-of-truth set.
+- Add Eventbrite and Ticketmaster as optional supplemental boost sources.
+- Event inclusion policy:
+  - in-person NYC only
+  - free and paid allowed
+  - ticketed/registerable only
+  - exclude editorial/news mentions without concrete listing data
+- Date policy:
+  - event date must come from semantic event meaning
+  - do not use article publish date fallback for surfaced cards
 
 ### MVP 3.0 risk notes
 
-- Source-specific scraper tweaks are medium risk due to upstream HTML variability.
-- Aggressive filtering can over-prune if not tuned.
-- Mitigation: phased rollout and compare event output quality against MVP 2.0 before full rollout.
-- Retrieval/selection tuning should be treated as a dedicated mini-phase with explicit before/after samples from required sources (especially SecretNYC) to avoid silent quality regressions.
+- Over-filtering risk can reduce feed volume if thresholds are too strict.
+- Source/API changes can break extraction adapters unexpectedly.
+- Semantic validator variance can create instability if confidence gates are not calibrated.
+- Mitigation is milestone gating, replay-dataset regression checks, and explicit before/after evaluation against MVP 2.0 baseline.
 
 ---
 
@@ -261,10 +278,12 @@ Prefer temporary source disabling/non-required handling over risky late-night ar
 1. Confirm current Weekly Ingestion result for MVP 1.1 code and capture run ID.
 2. Reboot app and run manual flow check (create -> swipe -> availability -> results).
 3. If pass, mark MVP 1.1 as production-stable checkpoint in deployment notes.
-4. Implement MVP 2.0 scoped changes (single commit).
-5. Validate locally (lint/type/tests), then push and deploy.
-6. Run Weekly Ingestion manually on MVP 2.0.
-7. Run Agent D signoff checklist.
-8. Decide `GO` / `GO with conditions`.
-9. Plan MVP 3.0 branch and begin staged implementation.
+4. Finalize MVP 2.0 validation status (if pending) and keep rollback tags unchanged.
+5. Open `docs/RECALL_IMPROVEMENT.md` as the implementation playbook for MVP 3.0.
+6. Execute MVP 3.0 in milestone order only: `M1 -> M2 -> M3 -> M4 -> M5`.
+7. After each milestone:
+   - run defined tests and quality checks from `docs/RECALL_IMPROVEMENT.md`
+   - record before/after metrics and release-gate evidence
+8. Run Agent D signoff checklist after MVP 3.0 milestone completion.
+9. Decide `GO` / `GO with conditions` based on measured quality gates, not intuition.
 
