@@ -66,6 +66,7 @@ Move from MVP deployment (ephemeral local disk on Streamlit Cloud) to reliable u
 - Pre-deploy snapshot required before schema or data changes.
 - Keep previous release artifact available for immediate rollback.
 - Use `docs/ROLLBACK_REFERENCE.md` for quick tag/branch lookup and beginner rollback steps.
+- Docs-only commits may use lightweight checkpoint tags (for example `docs-checkpoint-YYYY-MM-DD`) to preserve planning history without changing runtime behavior.
 - If post-deploy readiness fails:
   1. roll back app revision,
   2. restore latest DB snapshot if needed,

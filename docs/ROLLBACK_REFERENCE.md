@@ -29,6 +29,12 @@ If anything breaks (deployment issue, ingestion issue, unexpected app behavior),
 - **Safety branch (backup pointer):** `release/mvp-stable-2026-02-27`
 - **Use this when:** you need to compare against the earlier baseline or intentionally revert to pre-MVP-1.1 behavior.
 
+### Docs-only checkpoint (no runtime code changes)
+
+- **Version name:** Docs planning checkpoint
+- **Tag (fixed snapshot):** `docs-checkpoint-2026-03-02`
+- **Use this when:** you want to restore planning/runbook docs only; this tag does not change ingestion/app logic.
+
 ---
 
 ## Beginner explanation: tags, branches, and rollback
@@ -58,6 +64,7 @@ Important: in normal team workflows, rollback is usually done by creating a reco
 ```powershell
 git fetch origin --tags
 git tag --list "mvp*"
+git tag --list "docs-checkpoint*"
 ```
 
 ### 2) Test a version locally (safe read-only check)
@@ -90,6 +97,7 @@ git push -u origin recovery/from-mvp-v1.0
 ## Safety rules
 
 - Do not delete or move these safety tags.
+- Docs-only checkpoint tags are allowed and recommended for auditability.
 - Always commit and push before triggering Weekly Ingestion.
 - If CI or ingestion fails, stabilize first (do not stack risky changes).
 - Prefer PR-based rollback over force-reset.

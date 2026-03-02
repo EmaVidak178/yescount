@@ -14,6 +14,7 @@ The current known-good MVP baseline is locked and restorable:
 - **Tag (immutable snapshot):** `mvp-v1.1-recall-stable-2026-03-02`
 - **Backup branch:** `release/mvp-v1.1-recall-stable-2026-03-02`
 - **Snapshot commit:** resolved by the tag pointer (authoritative)
+- **Docs-only checkpoint tag (planning-only):** `docs-checkpoint-2026-03-02` (does not change runtime/ingestion behavior)
 
 Historical MVP rollback is also preserved:
 

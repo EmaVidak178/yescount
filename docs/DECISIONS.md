@@ -115,3 +115,10 @@ Owner: implementation agent
 
 - Ingestion now rolls back failed DB transactions before finalizing run status to avoid Postgres `InFailedSqlTransaction` cascades.
 - CLI ingestion exits non-zero when run status is `failed`.
+
+## 15) Docs-Only Checkpoint Tagging Policy
+
+- Docs-only commits may be tagged with lightweight immutable tags for rollback/reference safety.
+- These tags are intended for planning/runbook recovery and do not imply ingestion/runtime behavior changes.
+- Naming convention: `docs-checkpoint-YYYY-MM-DD` (optionally with a suffix for same-day multiples).
+- Canonical reference for tag usage and rollback commands: `docs/ROLLBACK_REFERENCE.md`.

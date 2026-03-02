@@ -12,6 +12,7 @@ Provide a clear go/no-go decision for public sharing.
 - Latest manual Weekly Ingestion run URL and status.
 - Streamlit logs snapshot for the latest run window.
 - Manual tester notes/screenshots from end-to-end flow.
+- Optional docs-only checkpoint tag (if docs were updated separately from runtime code).
 
 ## Blocking Criteria (must pass)
 
