@@ -46,6 +46,22 @@ The following validation evidence is tied to the MVP baseline windows and can be
 - **Manual functional evidence (MVP):**
   - create session -> vote -> availability -> results confirmed working in live app.
 
+### MVP 1.1 deployment log (2026-03-02)
+
+- **Release state:** GREEN / successful deployment declared.
+- **Code baseline in production:** `8c250e7` (`mvp-v1.1-recall-stable-2026-03-02`).
+- **Weekly ingestion verification (GitHub Actions):**
+  - run id `22558364297` -> `success`
+  - `run_status=success total_events=16212`
+  - scraped source outcomes included: `secretnyc=15`, `timeout_newyork=76`, `untappedcities=22`, `fever_newyork=3`
+  - `hiddennyc` reported partial (`no events extracted`) and `anisah_immersive` remained intentionally disabled.
+- **Manual online verification (Streamlit):**
+  - reboot + full click-through test completed successfully
+  - organizer and participant core journey confirmed working (`create -> swipe -> availability -> results`)
+  - no blocker issues reported.
+
+Operational conclusion: MVP 1.1 is approved as current live baseline for user access.
+
 ### Agent D test policy for baseline
 
 For this exact MVP baseline, if **no code changes** are made after snapshot:
