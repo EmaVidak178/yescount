@@ -24,17 +24,22 @@ This MVP 1.1 baseline is the primary fallback point if future changes cause week
 
 ### Baseline verification evidence (recorded)
 
-The following validation evidence is tied to the MVP baseline window and can be reused as long as code is unchanged:
+The following validation evidence is tied to the MVP baseline windows and can be reused as long as code is unchanged:
 
-- **Commit at baseline:** `013c8b1`
-- **CI status (latest relevant):**
+- **MVP 1.0 baseline commit:** `013c8b1`
+- **MVP 1.0 CI status (latest relevant):**
   - `22504141061` (CI) -> success
   - `22503338246` (CI) -> success
-- **Weekly ingestion status:**
+- **MVP 1.0 Weekly ingestion status:**
   - `22503551651` (Weekly Ingestion) -> success
   - run log includes `run_status=success total_events=13949`
   - no `InFailedSqlTransaction` in latest successful run
-- **Automated test evidence (local):**
+- **MVP 1.1 baseline commit:** `8c250e7`
+- **MVP 1.1 code safety checks completed before tagging:**
+  - forced local ingestion completed successfully (`run_status=degraded` only due to local NYC Open Data config)
+  - local event volume check showed recovered scraped recall in the 30-day window
+  - ingestion regression tests: `tests/ingestion/test_run_ingestion.py` -> `7 passed`
+- **Automated test evidence (historical full-suite):**
   - full test suite: `77 passed`
   - ingestion-focused regressions: `11 passed`
   - smoke/readiness subset: `6 passed`
@@ -63,7 +68,7 @@ Full Agent D re-testing is required again after any code change (for example MVP
 
 ```powershell
 git fetch origin --tags
-git checkout mvp-stable-2026-02-27
+git checkout mvp-v1.1-recall-stable-2026-03-02
 ```
 
 #### Option B: Restore `main` to baseline via revert-forward approach (recommended operationally)
@@ -71,11 +76,18 @@ git checkout mvp-stable-2026-02-27
 1. Create a recovery branch from the baseline tag:
 
 ```powershell
-git checkout -b recovery/from-mvp-stable mvp-stable-2026-02-27
-git push -u origin recovery/from-mvp-stable
+git checkout -b recovery/from-mvp-v1.1 mvp-v1.1-recall-stable-2026-03-02
+git push -u origin recovery/from-mvp-v1.1
 ```
 
-2. Open a PR from `recovery/from-mvp-stable` to `main`, review, and merge.
+If you intentionally want to recover to historical MVP 1.0 instead:
+
+```powershell
+git checkout -b recovery/from-mvp-v1.0 mvp-stable-2026-02-27
+git push -u origin recovery/from-mvp-v1.0
+```
+
+2. Open a PR from the chosen recovery branch to `main`, review, and merge.
 
 #### Option C: Force-reset branch (only with explicit approval)
 
@@ -230,11 +242,13 @@ Prefer temporary source disabling/non-required handling over risky late-night ar
 
 ## 6) Suggested Execution Order From Here
 
-1. Implement MVP 2.0 scoped changes (single commit).
-2. Validate locally (lint/type/tests).
-3. Push and deploy.
-4. Run Weekly Ingestion manually.
-5. Run Agent D signoff checklist.
-6. Decide `GO` / `GO with conditions`.
-7. Plan MVP 3.0 branch and begin staged implementation.
+1. Confirm current Weekly Ingestion result for MVP 1.1 code and capture run ID.
+2. Reboot app and run manual flow check (create -> swipe -> availability -> results).
+3. If pass, mark MVP 1.1 as production-stable checkpoint in deployment notes.
+4. Implement MVP 2.0 scoped changes (single commit).
+5. Validate locally (lint/type/tests), then push and deploy.
+6. Run Weekly Ingestion manually on MVP 2.0.
+7. Run Agent D signoff checklist.
+8. Decide `GO` / `GO with conditions`.
+9. Plan MVP 3.0 branch and begin staged implementation.
 

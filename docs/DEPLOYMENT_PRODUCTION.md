@@ -65,6 +65,7 @@ Move from MVP deployment (ephemeral local disk on Streamlit Cloud) to reliable u
 
 - Pre-deploy snapshot required before schema or data changes.
 - Keep previous release artifact available for immediate rollback.
+- Use `docs/ROLLBACK_REFERENCE.md` for quick tag/branch lookup and beginner rollback steps.
 - If post-deploy readiness fails:
   1. roll back app revision,
   2. restore latest DB snapshot if needed,
@@ -86,8 +87,8 @@ Move from MVP deployment (ephemeral local disk on Streamlit Cloud) to reliable u
 - [ ] If scraper/date extraction logic changed, run ingestion once after deploy before UI validation.
 - [ ] Durability: create session, add vote, restart app; confirm data persists.
 - [ ] End-to-end: create -> join -> vote -> availability -> recommendations.
-- [ ] Verify card content quality: no generic roundup listicle titles as standalone events, date labels are event-specific or `Multiple dates`.
-- [ ] Verify event card UX: full-width top banner, larger landing hero, masonry cards, image placeholders for missing media, checkbox text `Yes! Count me in!`.
+- [ ] Verify card content quality: no obvious non-event/ad-style cards in the top set, and title/summary quality is acceptable.
+- [ ] Verify event card UX: full-width top banner, larger landing hero, masonry cards, image placeholders for missing media, checkbox text `Yes! Count me in!`, date hidden in card body.
 - [ ] Verify session links and invite text in real browser.
 - [ ] Inspect logs for errors during first user sessions.
 
