@@ -82,6 +82,11 @@ def _is_valid_event_datetime(value: Any) -> bool:
             return False
 
 
+def _fallback_event_datetime() -> str:
+    """Safe fallback datetime for scraped rows without parseable date_start."""
+    return datetime.now(UTC).isoformat()
+
+
 def _upsert_and_embed(
     conn: sqlite3.Connection,
     collection: Any | None,
@@ -96,16 +101,29 @@ def _upsert_and_embed(
     skipped_invalid_date = 0
     for event in events:
         if not _is_valid_event_datetime(event.get("date_start")):
-            skipped_invalid_date += 1
-            print(
-                (
-                    "[INGESTION] skip_event reason=invalid_date_start "
-                    f"source={event.get('source')} source_id={event.get('source_id')} "
-                    f"title={str(event.get('title', ''))[:80]}"
-                ),
-                file=sys.stderr,
-            )
-            continue
+            if str(event.get("source") or "") == "scraped":
+                event = dict(event)
+                fallback = _fallback_event_datetime()
+                event["date_start"] = fallback
+                print(
+                    (
+                        "[INGESTION] coerce_event reason=invalid_date_start_fallback "
+                        f"source={event.get('source')} source_id={event.get('source_id')} "
+                        f"fallback={fallback}"
+                    ),
+                    file=sys.stderr,
+                )
+            else:
+                skipped_invalid_date += 1
+                print(
+                    (
+                        "[INGESTION] skip_event reason=invalid_date_start "
+                        f"source={event.get('source')} source_id={event.get('source_id')} "
+                        f"title={str(event.get('title', ''))[:80]}"
+                    ),
+                    file=sys.stderr,
+                )
+                continue
         try:
             event_id = upsert_event(conn, event)
         except Exception as exc:

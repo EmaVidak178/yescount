@@ -443,7 +443,9 @@ def _render_event_media(img_url: str | None, title: str, event_id: int) -> None:
         st.markdown(
             (
                 f'<div class="yc-card-media" style="height:{height}px;">'
-                f'<img src="{html.escape(img_url)}" alt="{html.escape(title)}" />'
+                f'<img src="{html.escape(img_url)}" alt="{html.escape(title)}" '
+                "onerror=\"this.style.display='none';this.nextElementSibling.style.display='flex';\" />"
+                f'<div class="yc-card-placeholder" style="display:none;">{html.escape(title[:40])}</div>'
                 "</div>"
             ),
             unsafe_allow_html=True,
@@ -489,12 +491,11 @@ def _render_event_card(
     event: dict[str, Any],
     *,
     idx: int,
-    voting: dict[str, Any],
     selected_ids: list[int],
     display_titles: dict[int, str] | None = None,
     display_summaries: dict[int, str] | None = None,
 ) -> None:
-    """Render one event card for mosaic (image, title, desc, date, checkbox)."""
+    """Render one event card for mosaic (image, title, summary, checkbox)."""
     eid = int(event.get("id") or 0)
     title = (display_titles or {}).get(eid) or _event_title(event)
     summary = (display_summaries or {}).get(eid) or str(event.get("description", "")).strip()
@@ -502,24 +503,11 @@ def _render_event_card(
     if len(summary) > 220:
         cut = summary[:221].rfind(" ")
         summary = (summary[:cut] + "...") if cut > 110 else (summary[:220] + "...")
-    meta_parts: list[str] = []
-    schedule_label = _event_schedule_label(event, month_label=voting["month_label"])
-    if schedule_label:
-        meta_parts.append(f"**Date:** {schedule_label}")
-    location = str(event.get("location", "")).strip()
-    if location:
-        meta_parts.append(f"Where: {location}")
-    price_str = _format_price_for_ui(event.get("price_max"))
-    if price_str:
-        meta_parts.append(f"Price: {price_str}")
-    meta_str = " | ".join(meta_parts) if meta_parts else ""
     with st.container(border=True):
         _render_event_media(img_url, title, eid)
         st.markdown(f"**{idx}. {title}**")
         if summary:
             st.caption(summary)
-        if meta_str:
-            st.markdown(meta_str)
         if st.checkbox("Yes! Count me in!", key=f"vote_event_{event['id']}"):
             selected_ids.append(int(event["id"]))
 
@@ -887,7 +875,6 @@ def render_swipe() -> None:
                     _render_event_card(
                         event,
                         idx=card_idx,
-                        voting={"month_label": range_start.strftime("%B %Y")},
                         selected_ids=selected_ids,
                         display_titles=display_titles,
                         display_summaries=display_summaries,
@@ -913,14 +900,8 @@ def render_swipe() -> None:
             st.error(f"Vote save failed: {exc}")
 
 
-def _date_range_for_session() -> list[date]:
-    prefs = load_preferences(st.session_state.admin_preferences)
-    if prefs.date_range_start and prefs.date_range_end:
-        start = date.fromisoformat(prefs.date_range_start)
-        end = date.fromisoformat(prefs.date_range_end)
-    else:
-        start = date.today()
-        end = date.today() + timedelta(days=13)
+def _date_range_for_session(conn: Any, session_id: str) -> list[date]:
+    start, end = _session_date_bounds(conn, session_id)
     out: list[date] = []
     cur = start
     while cur <= end:
@@ -1000,12 +981,12 @@ def _inject_calendar_styles() -> None:
 def render_calendar() -> None:
     runtime = get_runtime()
     conn = runtime["conn"]
-    st.subheader("Mark Availability")
+    st.subheader("Click on evenings when you're available!")
     participants = get_participants(conn, st.session_state.session_id)
     if not participants:
         st.warning("No participants found.")
         return
-    date_window = _date_range_for_session()
+    date_window = _date_range_for_session(conn, st.session_state.session_id)
     if not date_window:
         st.info("No dates in range.")
         return

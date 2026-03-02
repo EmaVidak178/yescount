@@ -1,7 +1,7 @@
 # YesCount MVP Phases Plan
 
 Owner: Product + Engineering  
-Last updated: 2026-02-27
+Last updated: 2026-03-02
 
 ---
 
@@ -11,11 +11,16 @@ Last updated: 2026-02-27
 
 The current known-good MVP baseline is locked and restorable:
 
-- **Tag (immutable snapshot):** `mvp-stable-2026-02-27`
-- **Backup branch:** `release/mvp-stable-2026-02-27`
-- **Snapshot commit:** `013c8b1`
+- **Tag (immutable snapshot):** `mvp-v1.1-recall-stable-2026-03-02`
+- **Backup branch:** `release/mvp-v1.1-recall-stable-2026-03-02`
+- **Snapshot commit:** resolved by the tag pointer (authoritative)
 
-This baseline is the fallback point if future changes cause weekly ingestion, CI, or runtime issues.
+Historical MVP rollback is also preserved:
+
+- **MVP 1.0 tag:** `mvp-stable-2026-02-27`
+- **MVP 1.0 backup branch:** `release/mvp-stable-2026-02-27`
+
+This MVP 1.1 baseline is the primary fallback point if future changes cause weekly ingestion, CI, or runtime issues.
 
 ### Baseline verification evidence (recorded)
 
@@ -98,6 +103,11 @@ Apply only these changes:
 8. **Fix calendar to show full month for all users** (not just organizer path).
 9. **Change availability title text to:** `Click on evenings when you're available!`
 
+Filter quality intent for this phase:
+
+- MVP 1.0 is broad and not sensitive enough to separate true events from noisy/ad-style content.
+- MVP 2.0 will add moderate conditions for high-quality event recognition and additional filtering of ad-style listings, while avoiding over-restriction.
+
 ### Implementation constraints
 
 - Single implementation commit for all MVP 2.0 code changes.
@@ -122,7 +132,41 @@ After merge/deploy:
 
 ---
 
-## 3) MVP Version 3.0 (Quality Expansion Plan)
+## 3) MVP Version 1.1 (Recall Recovery Patch)
+
+### Goal
+
+Restore practical event recall volume without reintroducing Postgres timestamp-ingestion failures.
+
+### Why this patch is needed
+
+- Current ingestion hardening correctly prevents timestamp crashes.
+- However, many scraped rows with invalid/unclear dates are skipped, reducing website event recall too far.
+- Result: swipe can show very few (or zero) events in session range despite successful ingestion.
+
+### MVP 1.1 approach (approved)
+
+1. Keep MVP 2.0 UI changes (date hidden on cards, title+summary focus, calendar updates).
+2. Keep ingestion crash protections.
+3. For scraped rows only, if `date_start` is invalid/missing, coerce to a safe fallback ISO timestamp during ingestion.
+4. Continue logging these coerced rows for traceability.
+5. Do not display date on event cards in UI.
+
+### Risk profile
+
+- Lower risk than reverting ingestion guardrails entirely.
+- Restores recall while preserving database write safety.
+- May include some noisy cards (known temporary tradeoff) until MVP 3.0 curation/source tuning.
+
+### Phase positioning
+
+- MVP 1.1 is the current stable recall-protection baseline.
+- It intentionally accepts broader retrieval than strict-quality mode.
+- Quality tightening continues in MVP 2.0 and ranking optimization in MVP 3.0.
+
+---
+
+## 4) MVP Version 3.0 (Quality Expansion Plan)
 
 ### Goal
 
@@ -144,20 +188,28 @@ In addition to MVP 2.0, implement:
 9. **Keep full-month calendar for all users (13 = yes).**
 10. **Keep updated availability title text (14 = yes).**
 11. **Run full verification suite (15B):** lint + mypy + full pytest + ingestion validation.
+12. **Priority ranking upgrade:** ensure the surfaced top 30 cards are the best 30 available events for the month.
+13. **Filter logic deep-dive + tuning pass:** before implementing aggressive filtering, walk through retrieval -> scraping -> curation -> LLM generation behavior and tune rules iteratively so event recall is not over-restricted.
+14. **RAG/LLM expectation alignment:** ensure pipeline behavior follows this target model:
+    - scrape required websites,
+    - identify true events from retrieved content,
+    - use LLM to generate concise event summaries from source text,
+    - present event list with high relevance and stable volume.
 
 ### MVP 3.0 risk notes
 
 - Source-specific scraper tweaks are medium risk due to upstream HTML variability.
 - Aggressive filtering can over-prune if not tuned.
 - Mitigation: phased rollout and compare event output quality against MVP 2.0 before full rollout.
+- Retrieval/selection tuning should be treated as a dedicated mini-phase with explicit before/after samples from required sources (especially SecretNYC) to avoid silent quality regressions.
 
 ---
 
-## 4) Release and Rollback Operating Rules
+## 5) Release and Rollback Operating Rules
 
 ### Rule 1: Baseline always preserved
 
-Do not move or retag `mvp-stable-2026-02-27`.
+Do not move or retag `mvp-v1.1-recall-stable-2026-03-02` or `mvp-stable-2026-02-27`.
 
 ### Rule 2: Every phase deploy must be recoverable
 
@@ -176,7 +228,7 @@ Prefer temporary source disabling/non-required handling over risky late-night ar
 
 ---
 
-## 5) Suggested Execution Order From Here
+## 6) Suggested Execution Order From Here
 
 1. Implement MVP 2.0 scoped changes (single commit).
 2. Validate locally (lint/type/tests).

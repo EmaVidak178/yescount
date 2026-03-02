@@ -24,8 +24,8 @@ DEFAULT_REQUIRED_SOURCES = [
     {
         "name": "anisah_immersive",
         "url": "https://anisahauduevans.com/new-york-immersive-experiences-nyc/",
-        "required": True,
-        "enabled": True,
+        "required": False,
+        "enabled": False,
     },
     {
         "name": "fever_newyork",

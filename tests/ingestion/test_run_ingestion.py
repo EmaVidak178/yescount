@@ -70,7 +70,7 @@ def test_required_source_partial_does_not_fail_run(sqlite_db, mocker):
     assert result["status"] == "success"
 
 
-def test_run_ingestion_skips_invalid_scraped_event_datetime(sqlite_db, mocker):
+def test_run_ingestion_coerces_invalid_scraped_event_datetime(sqlite_db, mocker):
     mocker.patch("src.ingestion.run_ingestion.fetch_all_events", return_value=[])
     mocker.patch(
         "src.ingestion.run_ingestion.load_sources",
@@ -118,19 +118,23 @@ def test_run_ingestion_skips_invalid_scraped_event_datetime(sqlite_db, mocker):
     )
 
     assert result["status"] == "success"
-    assert result["events_upserted"] == 1
+    assert result["events_upserted"] == 2
 
     inserted = sqlite_db.execute(
         "SELECT COUNT(*) AS cnt FROM events WHERE source = 'scraped'"
     ).fetchone()
-    assert inserted["cnt"] == 1
+    assert inserted["cnt"] == 2
 
     source_check = sqlite_db.execute(
         "SELECT status, error FROM ingestion_source_checks WHERE source_name = ? ORDER BY id DESC LIMIT 1",
         ("scraper_site",),
     ).fetchone()
     assert source_check["status"] == "success"
-    assert "skipped_invalid_date=1" in source_check["error"]
+    coerced = sqlite_db.execute(
+        "SELECT date_start FROM events WHERE source_id = 'bad-1' LIMIT 1"
+    ).fetchone()
+    assert coerced is not None
+    assert str(coerced["date_start"]).strip() != ""
 
 
 def test_run_ingestion_continues_after_one_source_fails(sqlite_db, mocker):

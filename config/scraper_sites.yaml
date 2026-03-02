@@ -17,8 +17,8 @@ sources:
     enabled: true
   - name: anisah_immersive
     url: https://anisahauduevans.com/new-york-immersive-experiences-nyc/
-    required: true
-    enabled: true
+    required: false
+    enabled: false
   - name: fever_newyork
     url: https://feverup.com/en/new-york
     required: true
